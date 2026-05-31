@@ -1,0 +1,68 @@
+<!--
+Copyright 2026 Undermountain Coding Company
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Modes
+
+The two mode values and the exact source-resolution chain that determines which one is active.
+
+---
+
+## Mode values
+
+| Value | Meaning |
+|-------|---------|
+| `read` | Default. Bundled policies block all mutating verbs for `kubectl`, `helm`, `terraform`/`tofu`, and `aws`. User and repo policy `block` rules also apply. |
+| `read & write` | Bundled blocks are bypassed. User policy (`~/.config/failsafe/policy.rego`) and repo policy (`.failsafe.rego`) `block` rules still apply. |
+
+The `allow_override` mechanism is separate from mode: a repo policy can override a block at any mode — see the [bundled policies](bundled-policies.md) and [configuration](configuration.md) pages.
+
+---
+
+## Mode source chain
+
+Sources are tried in order. The **first source that returns a value** wins; all remaining sources are skipped. If no source resolves, the hard-coded default `"read"` is used.
+
+| Priority | Source type | Pattern / variable | Notes |
+|----------|-------------|-------------------|-------|
+| 1 | Environment variable | `FAILSAFE_MODE` | Highest priority. Useful for CI overrides. Not writable by `toggle`/`mode set` (env vars cannot be set in a parent process from a child). |
+| 2 | File | `${HOME}/.claude/pane-mode/${WEZTERM_PANE}` | Per-pane mode for WezTerm. Skipped when `WEZTERM_PANE` is unset. |
+| 3 | File | `${HOME}/.claude/pane-mode/${TMUX_PANE}` | Per-pane mode for tmux. Skipped when `TMUX_PANE` is unset. |
+| 4 | File | `${HOME}/.claude/pane-mode/${ITERM_SESSION_ID}` | Per-pane mode for iTerm2. Skipped when `ITERM_SESSION_ID` is unset. |
+| 5 | File | `${HOME}/.claude/pane-mode/${KITTY_WINDOW_ID}` | Per-pane mode for Kitty. Skipped when `KITTY_WINDOW_ID` is unset. |
+| 6 | File | `${HOME}/.claude/pane-mode/${CLAUDE_SESSION_ID}` | Per-session mode keyed on `CLAUDE_SESSION_ID`. Skipped when unset. |
+| 7 | TTY file | `${HOME}/.config/failsafe/tty-<device_id>` | Per-controlling-terminal mode. The device ID comes from `stat(/dev/tty).Rdev`. Skipped in headless/CI environments where `/dev/tty` is unavailable. |
+| 8 | File | `${HOME}/.config/failsafe/mode` | Global fallback — shared across all terminals that have no multiplexer variable set. |
+| — | Default | `"read"` | Hard-coded. Used when all sources are skipped. |
+
+### File format
+
+All file sources contain a single line: either `read` or `read & write`. Trailing whitespace is trimmed. The file is written atomically (temp-file + rename) by `toggle` and `mode set`.
+
+### Variable expansion
+
+File source patterns use `${VAR}` syntax. If any referenced variable is unset or empty, the source is **skipped entirely** — failsafe never writes a path containing an empty substitution.
+
+### First-writable target
+
+`failsafe toggle` and `failsafe mode set` write to the **first writable source** whose path resolves in the current environment. The environment variable source (priority 1) is never writable — it cannot be set in a parent process. The remaining sources are all file-based and writable. Parent directories are created with `mkdir -p` as needed.
+
+### TTY source details
+
+The TTY source is designed to give each plain shell window (no multiplexer) its own mode file without coupling them to the single global file. The controlling terminal device ID is read from `/dev/tty`, which is distinct from stdin — the hook is invoked with hook JSON piped to stdin (not a TTY), but the shell's controlling terminal is still `/dev/tty`. This ensures `failsafe toggle` typed interactively and `hook` running on the agent's stdin both resolve to the **same** TTY-keyed file.
+
+In headless environments (CI, daemon, `ssh` without a tty), `open("/dev/tty")` fails and the TTY source is skipped; the chain falls through to the global file.
+
+---
+
+## Mode aliases accepted by `mode set`
+
+`failsafe mode set` accepts case-insensitive aliases that are normalised to the canonical value before writing:
+
+| Input | Canonical value written |
+|-------|------------------------|
+| `ro`, `r`, `read` | `read` |
+| `rw`, `w`, `read & write`, `read&write`, `read+write`, `readwrite` | `read & write` |
+
+The canonical values are what the Rego policy layer reads — `input.mode == "read"` matches only the exact string `"read"`.

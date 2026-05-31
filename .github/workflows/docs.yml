@@ -1,0 +1,30 @@
+# Copyright 2026 Undermountain Coding Company
+# SPDX-License-Identifier: Apache-2.0
+
+name: docs
+
+# Build + publish the MkDocs (Material) site to the gh-pages branch.
+#
+# GATED to manual dispatch on purpose: nothing publishes while the repo is
+# private / pre-launch. Before the first real run:
+#   - GitHub Pages from a PRIVATE repo requires a paid plan (Pro/Team/Enterprise).
+#   - Enable Pages in repo Settings → Pages, serving from the `gh-pages` branch.
+#   - For the failsafe.sh custom domain, add a CNAME (docs/CNAME or Pages settings).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # mkdocs gh-deploy force-pushes the built site to gh-pages
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install -r docs/requirements.txt
+      - run: mkdocs gh-deploy --force --clean

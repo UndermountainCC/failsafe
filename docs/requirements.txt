@@ -1,0 +1,2 @@
+# Docs site toolchain (MkDocs Material). Install: pip install -r docs/requirements.txt
+mkdocs-material

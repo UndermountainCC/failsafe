@@ -1,0 +1,44 @@
+# Copyright 2026 Undermountain Coding Company
+# SPDX-License-Identifier: Apache-2.0
+
+name: git
+match: ["git"]
+env_prefix: true
+global_flags:
+  - { long: "C",         short: "C", takes_value: true, style: short }
+  - { long: "git-dir",   takes_value: true }
+  - { long: "work-tree", takes_value: true }
+  - { long: "no-pager",  takes_value: false }
+  - { long: "version",   takes_value: false }
+  - { long: "exec-path", takes_value: true }
+  - { long: "namespace", takes_value: true }
+verbs:
+  status:   {}
+  log:      {}
+  diff:     {}
+  show:     {}
+  branch:   {}
+  blame:    {}
+  fetch:    {}
+  pull:     {}
+  push:     {}
+  commit:   {}
+  rebase:   {}
+  reset:    {}
+  checkout: {}
+  switch:   {}
+  merge:    {}
+  add:      {}
+  rm:       {}
+  mv:       {}
+  init:     {}
+  clone:    {}
+  remote:
+    subverbs: [add, remove, set-url, get-url, rename, list, show, prune]
+  config:
+    subverbs: [get, set, unset, list, edit, get-all, get-regexp]
+  stash:
+    subverbs: [push, pop, apply, drop, list, show, clear]
+  tag:      {}
+  cherry-pick: {}
+enrich: [git]

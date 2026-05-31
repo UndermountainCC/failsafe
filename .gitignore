@@ -1,0 +1,14 @@
+# Build artefacts
+/failsafe
+/dist/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# internal design/process notes — not public
+docs/superpowers/
+
+# mkdocs build output
+/site/

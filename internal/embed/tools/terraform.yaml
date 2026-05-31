@@ -1,0 +1,30 @@
+# Copyright 2026 Undermountain Coding Company
+# SPDX-License-Identifier: Apache-2.0
+
+name: terraform
+match: ["terraform", "tofu"]
+env_prefix: true
+global_flags:
+  - { long: "chdir",   takes_value: true, style: gnu_short }
+  - { long: "help",    takes_value: false, style: gnu_short }
+  - { long: "version", takes_value: false, style: gnu_short }
+verbs:
+  plan:      {}
+  show:      {}
+  output:    {}
+  validate:  {}
+  fmt:       {}
+  providers: {}
+  version:   {}
+  graph:     {}
+  apply:     {}
+  destroy:   {}
+  import:    {}
+  init:      {}
+  refresh:   {}
+  taint:     {}
+  untaint:   {}
+  workspace:
+    subverbs: [list, show, select, new, delete]
+  state:
+    subverbs: [list, show, mv, rm, replace-provider, pull, push]

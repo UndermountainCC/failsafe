@@ -1,0 +1,108 @@
+<!--
+Copyright 2026 Undermountain Coding Company
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Explain a command
+
+Dry-run any shell command through the policy chain to see exactly what failsafe would decide — before wiring hooks or before running a risky command for real.
+
+## Basic usage
+
+Pass the command as a single quoted string or as separate arguments:
+
+```bash
+failsafe explain "kubectl delete ns payments"
+```
+
+```bash
+failsafe explain kubectl delete ns payments
+```
+
+Both forms are equivalent — the command is re-assembled and fed through the same shell parser the hook uses.
+
+## Reading the output
+
+```
+── call 1: kubectl ──
+Verb:        delete
+Positional:  ns payments
+Effective cwd: /Users/you/infra
+Mode:        read
+Policy chain (2 modules at this cwd):
+  [bundled] bundled/kubectl.rego
+  [repo] /Users/you/infra/.failsafe.rego [trusted]
+Decision: BLOCK
+Reason  : prod is read-only
+```
+
+| Field | Meaning |
+|-------|---------|
+| `Verb` / `Subverb` | The parsed subcommand (first positional token after flags). |
+| `Flags` | Key-value pairs extracted from the command line. |
+| `Positional` | Non-flag arguments after the verb. |
+| `Effective cwd` | Directory used for policy discovery and git/kube enrichment. |
+| `Mode` | Always `read`. `explain` dry-runs the **default** guard and does not read the pane's mode (see [below](#explain-always-evaluates-in-read-mode)). |
+| `Policy chain` | Modules evaluated in cascade order, with trust labels for repo files. |
+| `Decision` | `ALLOW`, `ALLOW (with override)`, or `BLOCK`. |
+| `Reason` | The matching rule's reason string (on block or override). |
+
+When a command contains multiple tool calls chained with `&&` or `;`, each call gets its own `── call N ──` block. explain stops at the **first block**, mirroring the hook.
+
+## explain always evaluates in read mode
+
+`explain` is a dry-run of the **default** guard: it always evaluates in `read` mode and
+ignores the pane's mode (and `FAILSAFE_MODE`). That's deliberate — it answers the question
+that matters: *would this be blocked by default?*
+
+`read & write` only ever *bypasses* bundled `block` rules, so a command that `explain` shows
+as blocked by a bundled rule would be allowed in a write pane (your user and repo policies
+still apply). To see a live decision under the pane's actual mode, run the command through
+your agent so the [`failsafe hook`](../reference/cli.md#hook) path evaluates it — the hook
+reads the [mode-source chain](../reference/modes.md); `explain` does not.
+
+## Checking the repo policy
+
+If you are inside a repo that has a `.failsafe.rego`, explain includes it in the policy chain automatically — provided the repo is trusted. An untrusted file shows `[untrusted]` and is skipped in evaluation.
+
+```
+  [repo] /Users/you/infra/.failsafe.rego [untrusted]
+```
+
+Trust the repo first: `failsafe trust add .`
+
+## Commands with pipeline or chained operators
+
+explain handles full shell syntax — pipes, `&&`, `;`, env-variable prefixes, and absolute binary paths:
+
+```bash
+failsafe explain "KUBECONFIG=~/.kube/prod.yaml kubectl apply -f deploy.yaml"
+failsafe explain "terraform init && terraform apply -auto-approve"
+```
+
+If failsafe cannot safely analyse a command (ambiguous `cd`, unsupported shell construct), the output shows:
+
+```
+Decision: BLOCK (refuse-on-ambiguity)
+Reason  : <explanation of the ambiguity>
+```
+
+This matches the hook's fail-closed behaviour: if it can't inspect the command, it blocks.
+
+## Non-infra commands
+
+Commands that do not involve a registered tool are reported and skipped:
+
+```
+[call 1] echo — not an infra tool, skipped
+```
+
+No decision is printed because failsafe would allow the command through.
+
+## See also
+
+- [Review audit reports](./review-reports.md)
+- [Wire failsafe into Claude Code](./claude-code-hook.md)
+- [Policy cascade](../explanation/policy-cascade.md)
+- [Fact schema](../reference/fact-schema.md)
+- [CLI reference — explain](../reference/cli.md#explain)

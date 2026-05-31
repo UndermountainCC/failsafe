@@ -1,0 +1,1 @@
+{"mode":"read","tool":"aws","verb":"eks","subverb":"delete-cluster","positional":["--name","foo"]}

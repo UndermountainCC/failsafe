@@ -1,0 +1,23 @@
+# Copyright 2026 Undermountain Coding Company
+# SPDX-License-Identifier: Apache-2.0
+
+# Example: GitHub CLI. Place in ~/.config/failsafe/tools/gh.yaml
+name: gh
+match: ["gh"]
+env_prefix: true
+global_flags:
+  - { long: "version", takes_value: false }
+  - { long: "help", takes_value: false }
+verbs:
+  pr:
+    subverbs: [list, view, create, close, comment, diff, edit, merge, ready, status]
+  issue:
+    subverbs: [list, view, create, close, comment, edit, status]
+  repo:
+    subverbs: [list, view, create, clone, fork, edit, archive, delete]
+  workflow:
+    subverbs: [list, view, run, enable, disable]
+  run:
+    subverbs: [list, view, watch, cancel, rerun, download]
+  auth:
+    subverbs: [login, logout, status, token, refresh]

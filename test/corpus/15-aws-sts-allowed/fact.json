@@ -1,0 +1,1 @@
+{"mode":"read","tool":"aws","verb":"sts","subverb":"get-caller-identity"}

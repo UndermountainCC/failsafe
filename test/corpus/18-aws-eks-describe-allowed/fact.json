@@ -1,0 +1,1 @@
+{"mode":"read","tool":"aws","verb":"eks","subverb":"describe-cluster","positional":["--name","foo"]}

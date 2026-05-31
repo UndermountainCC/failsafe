@@ -1,0 +1,42 @@
+# Copyright 2026 Undermountain Coding Company
+# SPDX-License-Identifier: Apache-2.0
+
+name: aws
+match: ["aws"]
+env_prefix: true
+global_flags:
+  - { long: "region",      takes_value: true }
+  - { long: "profile",     takes_value: true }
+  - { long: "endpoint-url", takes_value: true }
+  - { long: "output",      takes_value: true }
+  - { long: "ca-bundle",   takes_value: true }
+  - { long: "cli-read-timeout",    takes_value: true }
+  - { long: "cli-connect-timeout", takes_value: true }
+  - { long: "debug",       takes_value: false }
+  - { long: "no-verify-ssl", takes_value: false }
+  - { long: "no-paginate", takes_value: false }
+  - { long: "no-sign-request", takes_value: false }
+verbs:
+  # Service is parsed as verb, action as subverb.
+  s3:
+    subverbs: [ls, cp, mv, rm, sync, mb, rb, presign]
+  s3api:
+    subverbs: [list-buckets, list-objects, list-objects-v2, head-object, get-object,
+               put-object, delete-object, delete-bucket, create-bucket, copy-object,
+               head-bucket, get-bucket-location, get-bucket-policy]
+  ec2:
+    subverbs: [describe-instances, describe-security-groups, describe-vpcs, describe-subnets,
+               run-instances, terminate-instances, stop-instances, start-instances,
+               create-security-group, delete-security-group]
+  eks:
+    subverbs: [describe-cluster, list-clusters, describe-nodegroup, list-nodegroups,
+               update-kubeconfig, create-cluster, delete-cluster]
+  iam:
+    subverbs: [list-users, list-roles, list-policies, get-user, get-role, get-policy,
+               create-role, create-user, attach-role-policy, detach-role-policy,
+               delete-role, delete-user, delete-policy]
+  sts:
+    subverbs: [get-caller-identity, assume-role, get-session-token]
+  ecr:
+    subverbs: [describe-repositories, describe-images, get-login-password,
+               batch-delete-image, delete-repository]

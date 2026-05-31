@@ -1,0 +1,76 @@
+# Copyright 2026 Undermountain Coding Company
+# SPDX-License-Identifier: Apache-2.0
+
+# GoReleaser v2 config for failsafe.
+#
+# macOS notarization auto-enables ONLY when the signing secrets are present (see
+# `notarize.macos` below). This means `goreleaser release` is safe to run before
+# an Apple Developer ID ($99/yr) exists - it simply ships an unsigned build until
+# the MACOS_SIGN_* secrets are set, instead of failing the release.
+version: 2
+
+project_name: failsafe
+
+builds:
+  - id: failsafe
+    main: ./cmd/failsafe
+    binary: failsafe
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    # Quoted: an unquoted {{ in a YAML flow sequence parses as a flow mapping.
+    ldflags: ["-s -w -X main.version={{ .Version }}"]
+
+archives:
+  - id: failsafe
+    formats: [tar.gz]
+    name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+# Sign + notarize the macOS binaries. Gated on MACOS_SIGN_P12 being set, so CI
+# without an Apple Developer ID still produces a release (just unsigned).
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids: [failsafe]
+      sign:
+        certificate: "{{ .Env.MACOS_SIGN_P12 }}"
+        password: "{{ .Env.MACOS_SIGN_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
+        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
+        key: "{{ .Env.MACOS_NOTARY_KEY }}"
+        wait: true
+
+# Homebrew cask (replaces the deprecated `brews:` formula generator, removed in
+# goreleaser v2.16). Casks are macOS-only — Linux users install via the GitHub
+# Release binary or `go install`. The tap push needs HOMEBREW_TAP_GITHUB_TOKEN
+# (write access to the tap repo) in the release workflow.
+homebrew_casks:
+  - name: failsafe
+    binaries:
+      - failsafe
+    repository:
+      owner: UndermountainCC
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://failsafe.sh"
+    description: "The fail-safe for AI coding agents — stops the irreversible command before your agent runs it."
+    # Marks the release download host as trusted, silencing Homebrew's audit warning.
+    url:
+      verified: "github.com/UndermountainCC/failsafe/"
+    # Unsigned binaries are Gatekeeper-quarantined on download; strip it on install.
+    # Harmless once macOS notarization (MACOS_SIGN_*) is enabled.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/failsafe"]
+          end
+
+release:
+  draft: true
+  prerelease: auto

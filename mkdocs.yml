@@ -1,0 +1,88 @@
+site_name: failsafe
+site_description: >-
+  The fail-safe for AI coding agents — stop the command your agent
+  can't take back, before it runs.
+site_url: https://failsafe.sh/
+repo_url: https://github.com/UndermountainCC/failsafe
+repo_name: UndermountainCC/failsafe
+copyright: >-
+  © 2026 Undermountain ·
+  Docs <a href="https://github.com/UndermountainCC/failsafe/blob/main/LICENSE-docs">CC-BY-4.0</a> ·
+  Code <a href="https://github.com/UndermountainCC/failsafe/blob/main/LICENSE">Apache-2.0</a>
+
+theme:
+  name: material
+  icon:
+    logo: material/shield-check
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: amber
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: amber
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.footer
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - Getting started: tutorials/getting-started.md
+  - How-to Guides:
+      - Wire into Claude Code: how-to/claude-code-hook.md
+      - Toggle mode in WezTerm: toggle/wezterm.md
+      - Toggle mode in iTerm2: toggle/iterm.md
+      - Toggle mode in tmux: toggle/tmux.md
+      - Status line in Claude Code: claude-statusline.md
+      - Write a per-cluster policy: how-to/per-cluster-policy.md
+      - Protect a repo with a policy: how-to/repo-policy.md
+      - Trust a repo's policies: how-to/trust-a-repo.md
+      - Dry-run a command with explain: how-to/explain-a-command.md
+      - Review decisions with report: how-to/review-reports.md
+      - Add a custom tool parser: how-to/custom-tool-parser.md
+  - Reference:
+      - CLI commands: reference/cli.md
+      - Policy fact schema: reference/fact-schema.md
+      - Bundled policies: reference/bundled-policies.md
+      - Modes & mode-source chain: reference/modes.md
+      - Configuration & paths: reference/configuration.md
+  - Explanation:
+      - Why failsafe: explanation/why-failsafe.md
+      - Policy cascade & overrides: explanation/policy-cascade.md
+      - Repo trust model: explanation/trust-model.md
+      - Fail-closed, local-first & audit: explanation/design-principles.md
+      - Roadmap — JS/TS supply chain: explanation/roadmap.md

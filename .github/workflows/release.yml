@@ -1,0 +1,76 @@
+# Copyright 2026 Undermountain Coding Company
+# SPDX-License-Identifier: Apache-2.0
+
+name: release
+
+# Release. goreleaser builds the binaries, publishes a GitHub Release, and pushes
+# the generated formula to UndermountainCC/homebrew-tap.
+#
+# Triggers:
+#   - push a tag `v*`            → real release of that tag (automatic).
+#   - manual run with a `tag`    → real release of an existing tag (re-run / UI release).
+#   - manual run with no `tag`   → snapshot dry-run: builds artifacts, publishes nothing.
+#
+# Required secrets:
+#   HOMEBREW_TAP_GITHUB_TOKEN  PAT (or fine-grained token) with write access to
+#                              UndermountainCC/homebrew-tap. The default
+#                              GITHUB_TOKEN is scoped to this repo only and
+#                              cannot push to the tap.
+# Optional (macOS signing/notarization — release runs unsigned without them):
+#   MACOS_SIGN_P12, MACOS_SIGN_PASSWORD,
+#   MACOS_NOTARY_ISSUER_ID, MACOS_NOTARY_KEY_ID, MACOS_NOTARY_KEY
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release (e.g. v0.1.0). Leave blank for a snapshot dry-run (build only, no publish)."
+        required: false
+        type: string
+
+permissions:
+  contents: write   # create the GitHub Release
+
+jobs:
+  goreleaser:
+    # ubuntu-latest cross-compiles the darwin/linux binaries fine. macOS
+    # signing/notarization (when MACOS_SIGN_* secrets are set) needs a macOS host —
+    # codesign/notarytool are macOS-only — so to ship *signed* releases, switch this
+    # job to `macos-latest`. Unsigned releases work on ubuntu-latest as-is.
+    runs-on: ubuntu-latest
+    steps:
+      # Validate the manual tag input before it reaches `ref:` (defense in depth;
+      # workflow_dispatch is already collaborator-gated).
+      - name: Validate manual tag input
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.]+)?$'; then
+            echo "::error::Invalid tag '$TAG' — expected vMAJOR.MINOR.PATCH (e.g. v0.1.0)"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # goreleaser needs full history + tags
+          # push: the tag ref. dispatch+tag: that tag. dispatch+blank: the branch (snapshot).
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          # Blank manual run = snapshot (no tag needed, publishes nothing); everything else = real release.
+          args: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.tag == '') && 'release --clean --snapshot' || 'release --clean' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
