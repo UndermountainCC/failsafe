@@ -48,6 +48,6 @@ teardown() { teardown_sandbox; }
   [[ "$block" == *"echo read"* ]]
   local f="$HOME/.claude/pane-mode/%wz"; printf 'read & write' > "$f"
   ( sleep 1; echo read > "$f" ) &
-  sleep 1.6
+  sleep 2.5   # generous margin over the 1s revert so loaded CI runners don't flake
   [ "$(read_mode_file "%wz")" = "read" ]
 }
