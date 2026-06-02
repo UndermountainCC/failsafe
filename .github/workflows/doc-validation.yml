@@ -1,0 +1,27 @@
+name: doc-validation
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install harness dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats tmux lua5.4 luarocks jq python3-pip
+          sudo luarocks install luacheck
+          # System-wide so imports/binaries are HOME-independent (bats sandboxes HOME).
+          sudo pip install --break-system-packages iterm2 pyflakes
+      - name: Build failsafe onto PATH
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          go build -o "$RUNNER_TEMP/bin/failsafe" ./cmd/failsafe
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Run headless doc validation
+        run: bats test/docs/*.bats
