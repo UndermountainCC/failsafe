@@ -57,8 +57,6 @@ def read_mode(path):
         return "read"            # missing file = safe default
 
 async def main(connection):
-    app = await iterm2.async_get_app(connection)
-
     # `sid_b64` is the base64 of $ITERM_SESSION_ID, published by the shell hook in step 1.
     # The trailing '?' makes the reference optional (None if a session has no hook yet).
     @iterm2.RPC
