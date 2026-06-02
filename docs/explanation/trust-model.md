@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Trust Model
 
-A `.failsafe.rego` file travels with a repository. When you clone a project, its policy file comes with it — and that policy could declare `allow_override` rules designed to loosen the bundled or user-level blocks that protect your infrastructure.
+A `.failsafe.rego` file travels with a repository. When you clone a project, its policy file comes with it, and that policy could declare `allow_override` rules designed to loosen the bundled or user-level blocks that protect your infrastructure.
 
 This is a genuine threat surface. failsafe closes it with an explicit trust requirement: a repo's `allow_override` rules are silently stripped at compile time unless you have marked that repo as trusted.
 
@@ -13,7 +13,7 @@ This is a genuine threat surface. failsafe closes it with an explicit trust requ
 
 ## The threat it closes
 
-Consider what an `allow_override` rule can do. The repo layer is the only layer permitted to declare it, and it can cancel any block rule from any higher layer — including the bundled defaults that stop `kubectl delete` on prod, `terraform destroy`, or `helm uninstall`.
+Consider what an `allow_override` rule can do. The repo layer is the only layer permitted to declare it, and it can cancel any block rule from any higher layer, including the bundled defaults that stop `kubectl delete` on prod, `terraform destroy`, or `helm uninstall`.
 
 A malicious or carelessly written `.failsafe.rego` could declare:
 
@@ -24,7 +24,7 @@ allow_override contains {"reason": "project allows all mutations"} if {
 }
 ```
 
-If that rule loaded automatically on clone, every agent working in that repo would have its guards silently disabled. The attack is subtle because the bundled blocks still *appear* to exist — they fire and produce hits — but the override cancels them before the decision is returned.
+If that rule loaded automatically on clone, every agent working in that repo would have its guards silently disabled. The attack is subtle because the bundled blocks still *appear* to exist (they fire and produce hits) but the override cancels them before the decision is returned.
 
 The trust model ensures this cannot happen without your knowledge.
 
@@ -32,7 +32,7 @@ The trust model ensures this cannot happen without your knowledge.
 
 ## What an untrusted repo gets
 
-When failsafe discovers a `.failsafe.rego` in a repo you have not trusted, it loads the file in full — with one exception: `allow_override` rules are stripped from the AST at compile time. The stripped module is what gets compiled into the engine.
+When failsafe discovers a `.failsafe.rego` in a repo you have not trusted, it loads the file in full, with one exception: `allow_override` rules are stripped from the AST at compile time. The stripped module is what gets compiled into the engine.
 
 This means:
 
@@ -64,7 +64,7 @@ failsafe trust remove .
 
 When you run `failsafe trust add`, failsafe resolves the path to its absolute canonical form and appends it to the trust file. On every subsequent invocation, `IsTrusted` checks that canonical path against the list. If the check passes, the repo's `allow_override` rules are loaded and compiled normally.
 
-Trust is scoped to the exact directory you name. Subdirectories are not automatically trusted. Symlinks are resolved before comparison, so a symlink to a trusted directory is also trusted — but a different checkout of the same project in a different path is not.
+Trust is scoped to the exact directory you name. Subdirectories are not automatically trusted. Symlinks are resolved before comparison, so a symlink to a trusted directory is also trusted, but a different checkout of the same project in a different path is not.
 
 ---
 
@@ -82,12 +82,12 @@ The practical guidance: review the `.failsafe.rego` before trusting it, the same
 
 Every decision that was produced by an `allow_override` rule is recorded in the audit log with `decision: allow_override` and the override reason from the rule. If a repo policy is loosening guards in unexpected ways, `failsafe report` will show it.
 
-Because block rules from untrusted repos still fire and are logged (as `decision: block` when they cause a block), the audit log reflects the full policy picture — not just the decisions that allowed things through.
+Because block rules from untrusted repos still fire and are logged (as `decision: block` when they cause a block), the audit log reflects the full policy picture, not just the decisions that allowed things through.
 
 ---
 
 ## Where to go next
 
-- [Policy Cascade](./policy-cascade.md) — how allow_override fits into the three-layer decision
-- [Design Principles](./design-principles.md) — fail-closed behavior and why it extends to the trust system
-- [How to trust a repo](../how-to/trust-a-repo.md) — step-by-step guide to reviewing and trusting a `.failsafe.rego`
+- [Policy Cascade](./policy-cascade.md): how allow_override fits into the three-layer decision
+- [Design Principles](./design-principles.md): fail-closed behavior and why it extends to the trust system
+- [How to trust a repo](../how-to/trust-a-repo.md): step-by-step guide to reviewing and trusting a `.failsafe.rego`

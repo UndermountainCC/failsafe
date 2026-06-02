@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # JS/TS Supply-Chain Surface
 
-!!! warning "Roadmap — not yet shipped"
+!!! warning "Roadmap: not yet shipped"
     Everything on this page describes planned future capability. **None of it is implemented today.**
     The shipped surfaces are `kubectl`, `helm`, `terraform`/`tofu`, `aws`, and `git`.
     Do not rely on any behavior described here; it does not exist yet.
@@ -14,9 +14,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Two ways an agent wrecks you
 
-When people think about an AI coding agent causing harm through shell commands, they usually picture the obvious case: the agent mutates infrastructure — deletes a namespace, destroys a Terraform stack, drops a database. The shipped surfaces in failsafe cover this attack surface well.
+When people think about an AI coding agent causing harm through shell commands, they usually picture the obvious case: the agent mutates infrastructure, deletes a namespace, destroys a Terraform stack, drops a database. The shipped surfaces in failsafe cover this attack surface well.
 
-There is a second attack surface that is just as dangerous and considerably more subtle: **supply-chain execution**. An agent that runs `npm install` in a project directory is not (visibly) touching any infrastructure. It looks like ordinary development work. But it triggers code execution — `postinstall` scripts run automatically after packages land on disk — and the packages themselves may have been tampered with, substituted (dependency confusion), or simply malicious from the start.
+There is a second attack surface that is just as dangerous and considerably more subtle: **supply-chain execution**. An agent that runs `npm install` in a project directory is not (visibly) touching any infrastructure. It looks like ordinary development work. But it triggers code execution (`postinstall` scripts run automatically after packages land on disk) and the packages themselves may have been tampered with, substituted (dependency confusion), or simply malicious from the start.
 
 An agent has no way to know the difference between a postinstall script that compiles a native module and one that exfiltrates your `~/.aws/credentials` to a remote server. It runs them both.
 
@@ -34,7 +34,7 @@ The critical subtlety: a package's postinstall script is not the same as the pac
 
 ### Remote execution via `npx`
 
-`npx some-package` fetches and immediately executes a package that may not be installed locally. There is no install phase that a human might notice — the execution is the install. An agent told to run a scaffolding command via `npx` is silently running arbitrary remote code.
+`npx some-package` fetches and immediately executes a package that may not be installed locally. There is no install phase that a human might notice: the execution is the install. An agent told to run a scaffolding command via `npx` is silently running arbitrary remote code.
 
 `pnpx` and `yarn dlx` are equivalent patterns.
 
@@ -81,7 +81,7 @@ The repo layer could then `allow_override` for specific packages or workflows th
 
 A human developer who runs `npm install` has typically looked at the `package.json`, noticed that a new dependency appeared, and made a judgment about whether to trust the source. An AI agent does not do this. It runs `npm install` because the task requires a dependency, without inspecting what that dependency will do when it installs.
 
-This asymmetry — agents are capable and fast, but they do not exercise skepticism about supply-chain operations — is exactly the gap that failsafe's supply-chain surface is intended to close. The guard asks the question the agent will not: *should this package be allowed to run code on your machine right now?*
+This asymmetry, where agents are capable and fast but do not exercise skepticism about supply-chain operations, is exactly the gap that failsafe's supply-chain surface is intended to close. The guard asks the question the agent will not: *should this package be allowed to run code on your machine right now?*
 
 ---
 
@@ -95,6 +95,6 @@ If this matters for your use case, watch the [failsafe releases](https://github.
 
 ## Where to go next
 
-- [Why failsafe](./why-failsafe.md) — the core thesis: comprehension over matching
-- [Design Principles](./design-principles.md) — fail-closed behavior, which will apply to this surface too
-- [Supported surfaces](../reference/bundled-policies.md) — reference for what is shipped today
+- [Why failsafe](./why-failsafe.md): comprehension over matching
+- [Design Principles](./design-principles.md): fail-closed behavior, which will apply to this surface too
+- [Supported surfaces](../reference/bundled-policies.md): reference for what is shipped today

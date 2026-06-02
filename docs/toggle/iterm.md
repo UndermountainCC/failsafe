@@ -20,7 +20,7 @@ If you'd rather skip Python entirely, jump to [the 30-second alternative](#alter
 
 ---
 
-## 1. Shell hook — publish `$ITERM_SESSION_ID`
+## 1. Shell hook: publish `$ITERM_SESSION_ID`
 
 iTerm user variables are set with an OSC 1337 escape and a **base64** value. Add to your
 `~/.zshrc` (or `~/.bashrc`):
@@ -97,14 +97,14 @@ iTerm2 → **Settings → Keys → Key Bindings → +**:
 - **Action:** `Invoke Script Function`
 - **Function call:** `failsafe_toggle()`
 
-Press it in any session — the focused session's mode flips and (optionally) a macOS
+Press it in any session. The focused session's mode flips and (optionally) a macOS
 notification shows the change. Confirm with `failsafe mode get`.
 
 ---
 
 ## Alternative (no Python)
 
-If you don't want the API script, bind a key to run the command in-shell — it works
+If you don't want the API script, bind a key to run the command in-shell. It works
 because the shell already has `$ITERM_SESSION_ID`:
 
 iTerm2 → **Settings → Keys → Key Bindings → +**:
@@ -117,9 +117,10 @@ Tradeoff: this types the command into the current line, so only use it at an emp
 prompt (it injects mid-command if something is running). The Python approach above
 toggles silently regardless of what the shell is doing.
 
+
 ## "sudo mode"
 
-Write-enable is failsafe's `sudo` — make the notification say so. Swap the `osascript`
+Write-enable is failsafe's `sudo`, so make the notification say so. Swap the `osascript`
 line in the script for:
 
 ```python
@@ -129,12 +130,12 @@ os.system(f"osascript -e 'display notification \"{sub}\" with title \"{title}\"'
 ```
 
 See the WezTerm guide's *"sudo mode"* section for the matching badge and the **sudo
-timeout** trick (auto-revert to read-only after N minutes — the same idea works here:
+timeout** trick (auto-revert to read-only after N minutes; the same idea works here:
 `os.system(f\"( sleep 600; echo read > '{path}' ) &\")` right after the write).
 
 ## Notes
 
-- The file always stores the **canonical** value (`read` / `read & write`) — the same
-  thing `failsafe mode set rw` / `ro` normalize to — so the toggle and the CLI agree.
+- The file always stores the **canonical** value (`read` / `read & write`), the same
+  thing `failsafe mode set rw` / `ro` normalize to, so the toggle and the CLI agree.
 - Per-session isolation depends on `$ITERM_SESSION_ID` being unique per session, which
   iTerm guarantees. If a session predates the step-1 hook, open a fresh tab.

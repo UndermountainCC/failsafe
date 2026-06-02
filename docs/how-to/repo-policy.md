@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Protect a repo with a checked-in policy
 
-Gate infra commands at the repository level by committing a `.failsafe.rego` to the repo root — so the rules travel with the code and apply to anyone (or any agent) working in that directory.
+Gate infra commands at the repository level by committing a `.failsafe.rego` to the repo root, so the rules travel with the code and apply to anyone (or any agent) working in that directory.
 
 ## 1. Create `.failsafe.rego`
 

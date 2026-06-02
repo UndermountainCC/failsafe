@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Fact Schema
 
-The Rego `input` object passed to every policy rule — every field, its type, and its meaning.
+The Rego `input` object passed to every policy rule: every field, its type, and its meaning.
 
 Policies reference fields as `input.<field>`. All fields are always present (never undefined) except for enricher namespaces (`input.kubectl`, `input.git`), which are set only when the relevant enricher runs.
 
@@ -24,8 +24,8 @@ Policies reference fields as `input.<field>`. All fields are always present (nev
 | `input.env` | `object` | Shell parser | `KEY=VALUE` environment-variable prefixes on the command, e.g. `KUBECONFIG=... kubectl ...` → `{"KUBECONFIG": "..."}`. |
 | `input.cwd` | `string` | Hook / `explain` | Effective working directory for this specific call. A `cd /path && CMD` prefix resolves to `/path`; otherwise the agent-reported `cwd`. |
 | `input.now` | `string` | Clock | UTC timestamp in RFC3339 format at the moment `hook` was invoked. Useful for time-gated policies. |
-| `input.raw` | `string` | Hook stdin | The full raw command string as the agent passed it, before parsing. Secrets are **not** redacted here — do not log `input.raw` from a policy. |
-| `input.session` | `object` | Hook stdin | Session metadata — see table below. |
+| `input.raw` | `string` | Hook stdin | The full raw command string as the agent passed it, before parsing. Secrets are **not** redacted here; do not log `input.raw` from a policy. |
+| `input.session` | `object` | Hook stdin | Session metadata; see table below. |
 
 ### `input.session` sub-fields
 
@@ -38,7 +38,7 @@ Policies reference fields as `input.<field>`. All fields are always present (nev
 
 ## Enricher namespaces
 
-Enrichers populate per-tool sub-objects in `input`. Each enricher runs with a 100 ms deadline. If it panics, times out, or finds no data, the namespace is simply absent — policies that reference it will see undefined and the rule will not match.
+Enrichers populate per-tool sub-objects in `input`. Each enricher runs with a 100 ms deadline. If it panics, times out, or finds no data, the namespace is simply absent. Policies that reference it will see undefined and the rule will not match.
 
 ### `input.kubectl`
 
@@ -47,9 +47,9 @@ Populated by the `kubectl_context` enricher, which runs for every `kubectl` comm
 | Field | Type | Description |
 |-------|------|-------------|
 | `input.kubectl.current_context` | `string` | The raw `--context` flag value (verbatim). Always present when `--context` is given. |
-| `input.kubectl.cluster_name` | `string` | Cluster name extracted from an EKS ARN. E.g. for `arn:aws:eks:us-east-1:123:cluster/prod`, this is `"prod"`. **Only present** when `--context` is an EKS ARN (`arn:aws:eks:…`, `arn:aws-us-gov:eks:…`, or `arn:aws-cn:eks:…`). Not populated for non-ARN context names. |
+| `input.kubectl.cluster_name` | `string` | Cluster name extracted from an EKS ARN. E.g. for `arn:aws:eks:us-east-1:123:cluster/prod`, this is `"prod"`. **Only present** when `--context` is an EKS ARN (`arn:aws:eks:...`, `arn:aws-us-gov:eks:...`, or `arn:aws-cn:eks:...`). Not populated for non-ARN context names. |
 
-**Example — EKS ARN context:**
+**Example, EKS ARN context:**
 
 ```rego
 # Block kubectl mutations against a cluster whose name contains "prod".
@@ -60,7 +60,7 @@ block contains {"reason": "prod cluster is read-only"} if {
 }
 ```
 
-**Example — short context name:**
+**Example, short context name:**
 
 ```rego
 # Block against a non-ARN context named "production".
@@ -73,7 +73,7 @@ block contains {"reason": "production context is read-only"} if {
 
 ### `input.git`
 
-Populated by the `git` enricher, which runs for every `git` command. The enricher reads `.git/config` and `.git/HEAD` by walking up from `input.cwd` — no subprocess, no network.
+Populated by the `git` enricher, which runs for every `git` command. The enricher reads `.git/config` and `.git/HEAD` by walking up from `input.cwd`, with no subprocess and no network.
 
 | Field | Type | Description |
 |-------|------|-------------|
