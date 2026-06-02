@@ -39,3 +39,15 @@ need() { command -v "$1" >/dev/null 2>&1 || skip "$1 not installed"; }
 
 write_mode_file() { printf '%s' "$2" > "$HOME/.claude/pane-mode/$1"; }
 read_mode_file()  { tr -d '\r\n' < "$HOME/.claude/pane-mode/$1"; }
+
+# Build a PATH dir that contains everything claude-statusline.sh needs EXCEPT jq,
+# to exercise the documented graceful-degrade branch.
+make_nojq_path() {
+  local bin="$TEST_HOME/nojq-bin"; mkdir -p "$bin"
+  local t
+  for t in env bash sh cat cut sed failsafe; do
+    local p; p="$(command -v "$t" || true)"
+    [ -n "$p" ] && ln -sf "$p" "$bin/$t"
+  done
+  printf '%s' "$bin"
+}
