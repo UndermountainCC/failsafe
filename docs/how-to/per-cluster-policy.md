@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Write a per-cluster policy
 
-Make a specific Kubernetes cluster read-only — regardless of the pane's mode — by adding a user-level Rego rule that names the cluster explicitly.
+Make a specific Kubernetes cluster read-only, regardless of the pane's mode, by adding a user-level Rego rule that names the cluster explicitly.
 
 ## 1. Locate your cluster name
 
@@ -55,7 +55,7 @@ block contains {"reason": "kubectl delete namespace blocked on dev cluster"} if 
 }
 ```
 
-This is the policy from [`examples/policies/per-cluster.rego`](https://github.com/UndermountainCC/failsafe/blob/main/examples/policies/per-cluster.rego) — copy it as a starting point and adjust cluster names.
+This is the policy from [`examples/policies/per-cluster.rego`](https://github.com/UndermountainCC/failsafe/blob/main/examples/policies/per-cluster.rego). Copy it as a starting point and adjust cluster names.
 
 !!! note "User layer blocks survive write mode"
     `~/.config/failsafe/policy.rego` lives in the user layer and fires even when a pane is in `read & write` mode. Only a repo-level `allow_override` in a trusted `.failsafe.rego` can lift a user-layer block. See [Policy cascade](../explanation/policy-cascade.md).

@@ -7,14 +7,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 failsafe resolves the current pane's mode from `~/.claude/pane-mode/$WEZTERM_PANE`
 (see the mode-source chain in the README). WezTerm's Lua API exposes the same id via
-`pane:pane_id()`, so the toggle can **write that file directly** — no subprocess, no
+`pane:pane_id()`, so the toggle can **write that file directly**: no subprocess, no
 `failsafe` call, instant. Missing file = `read` (the safe default).
 
 Bind `Ctrl+Alt+T` to flip the focused pane between `read` and `read & write`.
 
 ## Drop-in snippet
 
-Paste into your `wezterm.lua` (or a module you `require`). Self-contained — no
+Paste into your `wezterm.lua` (or a module you `require`). It is self-contained, with no
 dependencies beyond WezTerm itself.
 
 ```lua
@@ -98,7 +98,7 @@ end)
 
 ## Make it yours: "sudo mode"
 
-Flipping a pane to `read & write` is failsafe's `sudo` — you're handing the agent the
+Flipping a pane to `read & write` is failsafe's `sudo`: you're handing the agent the
 sharp knives, on purpose, for a moment. Lean into it so the elevated state is impossible
 to miss.
 
@@ -121,7 +121,7 @@ Badge it as `sudo` when elevated:
 local badge = (mode == "read & write") and " ⚡ sudo " or " r "
 ```
 
-**Bonus — sudo timeout.** Real `sudo` forgets you after a few minutes; a *fail*-safe
+**Bonus: sudo timeout.** Real `sudo` forgets you after a few minutes; a *fail*-safe
 should too. Auto-revert a pane to read-only after N minutes of write, so you never walk
 away with the knives out:
 
@@ -134,7 +134,7 @@ if next_mode == "read & write" then
 end
 ```
 
-(The label is cosmetic — the file still stores the canonical `read & write`, so policies
+(The label is cosmetic: the file still stores the canonical `read & write`, so policies
 and `failsafe mode get` are unaffected.)
 
 ## Notes
@@ -142,6 +142,6 @@ and `failsafe mode get` are unaffected.)
 - The file always stores the **canonical** value (`read` / `read & write`) because
   that is what the bundled Rego policies match on (`input.mode == "read"`). The CLI's
   `rw` / `ro` aliases (`failsafe mode set rw`) normalize to the same canonical value, so
-  the WezTerm toggle and the CLI stay perfectly compatible.
+  the WezTerm toggle and the CLI stay compatible.
 - Prefer not to write the file from Lua? Replace `toggle_mode` with a spawn of
-  `failsafe toggle` — but the direct write is instant and needs no binary on PATH.
+  `failsafe toggle`, but the direct write is instant and needs no binary on PATH.

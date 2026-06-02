@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # CLI Reference
 
-Every subcommand shipped with the `failsafe` binary — synopsis, flags, what it reads/writes, and exit codes.
+Every subcommand shipped with the `failsafe` binary: synopsis, flags, what it reads/writes, and exit codes.
 
 ---
 
@@ -24,10 +24,10 @@ Every subcommand shipped with the `failsafe` binary — synopsis, flags, what it
 
 ```
 failsafe hook
-failsafe          # implicit hook — same behaviour
+failsafe          # implicit hook, same behaviour
 ```
 
-The hot path. Reads one Claude Code `PreToolUse` JSON envelope from **stdin**, evaluates the `tool_input.command` field through the shell parser → tool registry → OPA policy chain, then writes a decision to **stdout** and exits.
+The hot path. Reads one Claude Code `PreToolUse` JSON envelope from **stdin**, evaluates the `tool_input.command` field through the shell parser, tool registry, and OPA policy chain, then writes a decision to **stdout** and exits.
 
 **Stdin format** (Claude Code `PreToolUse` JSON):
 
@@ -46,7 +46,7 @@ The hot path. Reads one Claude Code `PreToolUse` JSON envelope from **stdin**, e
 {"decision":"block","reason":"kubectl delete blocked in read mode"}
 ```
 
-**Stdout on allow (plain):** empty — Claude Code interprets exit 0 with no stdout as allow.
+**Stdout on allow (plain):** empty. Claude Code interprets exit 0 with no stdout as allow.
 
 **Stdout on allow with repo override:**
 
@@ -56,24 +56,24 @@ The hot path. Reads one Claude Code `PreToolUse` JSON envelope from **stdin**, e
 
 **What it reads/writes:**
 
-- Reads: mode from the chain (`FAILSAFE_MODE`, pane-mode files — see [Modes](modes.md)).
+- Reads: mode from the chain (`FAILSAFE_MODE`, pane-mode files; see [Modes](modes.md)).
 - Reads: `~/.config/failsafe/policy.rego` (user layer), `.failsafe.rego` walking up from `cwd` (repo layer).
 - Reads: `~/.config/failsafe/trusted-repos.yaml` (trust list).
 - Appends: one JSON line to `~/.config/failsafe/decisions.jsonl` (or `FAILSAFE_LOG` override) per infra-tool decision. Logging is best-effort; a write failure never blocks the command.
 
 **Fail-closed behaviour:**
 
-- Shell parse error → block.
-- Refuse-on-ambiguity (subshell, eval, uncertain `cd`, heredoc, etc.) → block.
-- Uncertain `cwd` before a registered tool call → block.
-- Registry build error (corrupt YAML tool) → block.
-- Policy compile error → exit 1 (non-zero, hook aborted).
+- Shell parse error: block.
+- Refuse-on-ambiguity (subshell, eval, uncertain `cd`, heredoc, etc.): block.
+- Uncertain `cwd` before a registered tool call: block.
+- Registry build error (corrupt YAML tool): block.
+- Policy compile error: exit 1 (non-zero, hook aborted).
 
 **Exit codes:**
 
 | Code | Meaning |
 |------|---------|
-| 0 | Decision emitted (allow or block — both are exit 0; Claude Code reads stdout to distinguish). |
+| 0 | Decision emitted (allow or block: both are exit 0; Claude Code reads stdout to distinguish). |
 | 1 | Fatal internal error (policy compile failure, I/O error reading stdin). |
 
 ---
@@ -184,7 +184,7 @@ failsafe explain <command>
 failsafe explain "kubectl --context arn:… delete ns payments"
 ```
 
-Dry-runs a shell command through the same pipeline as `hook` and prints the per-call decision — which rules matched, from which layer, with what reason. Does **not** write to the audit log and does **not** flip any mode. Stops printing at the first block, mirroring `hook` behaviour.
+Dry-runs a shell command through the same pipeline as `hook` and prints the per-call decision: which rules matched, from which layer, with what reason. Does **not** write to the audit log and does **not** flip any mode. Stops printing at the first block, mirroring `hook` behaviour.
 
 Accepts the command either as a single quoted string or as shell-split tokens (the user's shell does the splitting).
 
@@ -210,7 +210,7 @@ Reason  : kubectl delete blocked in read mode
 
 | Code | Meaning |
 |------|---------|
-| 0 | Explanation printed (including a BLOCK decision — that is not a failure). |
+| 0 | Explanation printed (including a BLOCK decision, which is not a failure). |
 | 2 | Shell parse error or internal error (registry build, policy compile). |
 
 ---
@@ -231,13 +231,13 @@ Reads `decisions.jsonl`, filters to a time window, aggregates by tool/verb/decis
 | `--format` | `md` | `md` (Markdown) or `json`. |
 | `--share` | off | When set, redacts deployment-identifying data (paths, ARNs) before rendering. |
 
-**What it reads:** `~/.config/failsafe/decisions.jsonl`, or the path from `FAILSAFE_LOG` if set. A missing log file is not an error — a fresh install prints "No decisions logged in this window."
+**What it reads:** `~/.config/failsafe/decisions.jsonl`, or the path from `FAILSAFE_LOG` if set. A missing log file is not an error; a fresh install prints "No decisions logged in this window."
 
 **Markdown output structure:**
 
 1. Window header and total count.
 2. Table: counts by tool / verb / decision.
-3. "Scariest decisions" list — up to 5 entries scored by risk heuristic (block > allow_override; prod-keyword bumps the score).
+3. "Scariest decisions" list: up to 5 entries scored by risk heuristic (block > allow_override; prod-keyword bumps the score).
 
 **Exit codes:**
 
@@ -315,7 +315,7 @@ Manages the trusted-repos list at `~/.config/failsafe/trusted-repos.yaml`.
 | Code | Meaning |
 |------|---------|
 | 0 | Operation succeeded (or already-trusted for `add`). |
-| 1 | `remove` — path not in list; `check` — path not trusted; write error. |
+| 1 | `remove`: path not in list; `check`: path not trusted; write error. |
 | 2 | Usage error or I/O error reading the trust file. |
 
 ---
@@ -328,11 +328,11 @@ failsafe validate [--strict] <path>
 
 Lints a `.rego` file for use as a failsafe policy. Checks in order:
 
-1. **Parse** — valid Rego syntax.
-2. **Package** — `package guard.repo` for `.failsafe.rego`, `package guard.user` for files under `~/.config/failsafe/`.
-3. **Rule names** — `allow_override` is reserved for `guard.repo`; bundled and user layers may only declare `block`.
-4. **Rule shape** — every `block` and `allow_override` rule must produce `{"reason": <string>}`.
-5. **Fact-field references** — `input.<X>` references are checked against the known field list; unknowns emit a warning.
+1. **Parse**: valid Rego syntax.
+2. **Package**: `package guard.repo` for `.failsafe.rego`, `package guard.user` for files under `~/.config/failsafe/`.
+3. **Rule names**: `allow_override` is reserved for `guard.repo`; bundled and user layers may only declare `block`.
+4. **Rule shape**: every `block` and `allow_override` rule must produce `{"reason": <string>}`.
+5. **Fact-field references**: `input.<X>` references are checked against the known field list; unknowns emit a warning.
 
 `--strict` promotes warnings (fact-field unknowns) to errors.
 
@@ -356,9 +356,9 @@ Lists all registered tool parsers with their source. Each row: `<name>  (<source
 
 Sources:
 
-- `built-in Go` — Go-coded parsers (`kubectl`, `helm`).
-- `bundled YAML` — YAML tool definitions embedded in the binary (`terraform`, `aws`, `git`).
-- `user YAML at <path>` — YAML files from `~/.config/failsafe/tools/`.
+- `built-in Go`: Go-coded parsers (`kubectl`, `helm`).
+- `bundled YAML`: YAML tool definitions embedded in the binary (`terraform`, `aws`, `git`).
+- `user YAML at <path>`: YAML files from `~/.config/failsafe/tools/`.
 
 **Exit codes:** 0 always.
 
@@ -395,8 +395,8 @@ failsafe test <path>
 
 Runs a policy regression corpus. `<path>` may be:
 
-- A directory — walks it for subdirectories each containing `fact.json` + `expected.json`.
-- A single `fact.json` file — runs that one case.
+- A directory: walks it for subdirectories each containing `fact.json` + `expected.json`.
+- A single `fact.json` file: runs that one case.
 
 Each `fact.json` is the raw Rego `input` object (see [Fact Schema](fact-schema.md)). Each `expected.json` declares:
 

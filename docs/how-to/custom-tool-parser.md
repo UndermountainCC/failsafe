@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Add a custom tool parser
 
-Teach failsafe to parse and gate a CLI tool that is not built-in by dropping a YAML file into `~/.config/failsafe/tools/`. No recompile needed.
+Teach failsafe to parse and gate a CLI tool that is not built-in by dropping a YAML file into `~/.config/failsafe/tools/`. This requires no recompile.
 
 ## How it works
 
@@ -21,7 +21,7 @@ mkdir -p ~/.config/failsafe/tools
 
 ## 2. Write the YAML
 
-Create a file named `<tool>.yaml`. The filename is arbitrary — the `name` field inside the YAML is what appears in facts and reports.
+Create a file named `<tool>.yaml`. The filename is arbitrary: the `name` field inside the YAML is what appears in facts and reports.
 
 Here is the complete example for the GitHub CLI from [`examples/tools/gh.yaml`](https://github.com/UndermountainCC/failsafe/blob/main/examples/tools/gh.yaml):
 
@@ -70,7 +70,7 @@ Save it to `~/.config/failsafe/tools/gh.yaml`.
 | `repeated` | bool | `true` if the flag may appear multiple times. |
 | `style` | string | `"gnu_short"` for single-dash long flags (terraform-style `-chdir`). |
 
-Unknown flags in a real command are not an error — they are passed through as boolean `true` entries in `input.flags`. This is intentional: it fails closed (the verb is still extracted and policies still fire) rather than crashing on unrecognised options.
+Unknown flags in a real command are not an error: they are passed through as boolean `true` entries in `input.flags`. This is intentional. It fails closed (the verb is still extracted and policies still fire) rather than crashing on unrecognised options.
 
 ## 3. Verify the parser loaded
 
@@ -91,7 +91,7 @@ gh            (user YAML at /Users/you/.config/failsafe/tools/gh.yaml)
 
 ## 4. Write a policy to gate the new tool
 
-A loaded parser alone does not block anything — it only makes facts available. Add a `block` rule to your user policy (`~/.config/failsafe/policy.rego`) to act on the new tool:
+A loaded parser alone does not block anything: it only makes facts available. Add a `block` rule to your user policy (`~/.config/failsafe/policy.rego`) to act on the new tool:
 
 ```rego
 package guard.user
@@ -130,5 +130,5 @@ Reason  : gh repo delete is irreversible — run manually
 
 - [Write a per-cluster user policy](./per-cluster-policy.md)
 - [Explain a command](./explain-a-command.md)
-- [CLI reference — tools list](../reference/cli.md#tools-list)
+- [CLI reference: tools list](../reference/cli.md#tools-list)
 - [Fact schema](../reference/fact-schema.md)

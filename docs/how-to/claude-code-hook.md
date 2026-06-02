@@ -37,7 +37,7 @@ Add a `PreToolUse` hook to `~/.claude/settings.json` that matches the `Bash` too
 Claude Code streams a JSON envelope on `stdin`; failsafe replies on `stdout` with `allow`, `deny`, or `ask`. The bare binary defaults to `hook`, so `"command": "failsafe"` also works.
 
 !!! note "Agent-agnostic by design"
-    Anything with a pre-exec or Bash hook works the same way. The hook reads the agent's command on stdin and writes a decision on stdout — there is nothing Claude Code-specific in the protocol.
+    Anything with a pre-exec or Bash hook works the same way. The hook reads the agent's command on stdin and writes a decision on stdout. There is nothing Claude Code-specific in the protocol.
 
 ## 3. Confirm it's live
 
@@ -57,10 +57,10 @@ failsafe stays read-only until you deliberately flip a pane:
 failsafe toggle        # flip the current pane
 ```
 
-Bind a one-keystroke toggle in your terminal so you never type the command — see [WezTerm](../toggle/wezterm.md), [iTerm2](../toggle/iterm.md), or [tmux](../toggle/tmux.md).
+Bind a one-keystroke toggle in your terminal so you never type the command. See [WezTerm](../toggle/wezterm.md), [iTerm2](../toggle/iterm.md), or [tmux](../toggle/tmux.md).
 
 ## See also
 
-- [Modes — per-pane read / write](../reference/modes.md)
+- [Modes: per-pane read / write](../reference/modes.md)
 - [Why failsafe](../explanation/why-failsafe.md)
 - [Explain a command](./explain-a-command.md)

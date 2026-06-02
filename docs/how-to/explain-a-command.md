@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Explain a command
 
-Dry-run any shell command through the policy chain to see exactly what failsafe would decide — before wiring hooks or before running a risky command for real.
+Dry-run any shell command through the policy chain to see exactly what failsafe would decide, before wiring hooks or before running a risky command for real.
 
 ## Basic usage
 
@@ -19,7 +19,7 @@ failsafe explain "kubectl delete ns payments"
 failsafe explain kubectl delete ns payments
 ```
 
-Both forms are equivalent — the command is re-assembled and fed through the same shell parser the hook uses.
+Both forms are equivalent: the command is re-assembled and fed through the same shell parser the hook uses.
 
 ## Reading the output
 
@@ -52,18 +52,18 @@ When a command contains multiple tool calls chained with `&&` or `;`, each call 
 ## explain always evaluates in read mode
 
 `explain` is a dry-run of the **default** guard: it always evaluates in `read` mode and
-ignores the pane's mode (and `FAILSAFE_MODE`). That's deliberate — it answers the question
+ignores the pane's mode (and `FAILSAFE_MODE`). That is deliberate: it answers the question
 that matters: *would this be blocked by default?*
 
 `read & write` only ever *bypasses* bundled `block` rules, so a command that `explain` shows
 as blocked by a bundled rule would be allowed in a write pane (your user and repo policies
 still apply). To see a live decision under the pane's actual mode, run the command through
-your agent so the [`failsafe hook`](../reference/cli.md#hook) path evaluates it — the hook
+your agent so the [`failsafe hook`](../reference/cli.md#hook) path evaluates it. The hook
 reads the [mode-source chain](../reference/modes.md); `explain` does not.
 
 ## Checking the repo policy
 
-If you are inside a repo that has a `.failsafe.rego`, explain includes it in the policy chain automatically — provided the repo is trusted. An untrusted file shows `[untrusted]` and is skipped in evaluation.
+If you are inside a repo that has a `.failsafe.rego`, explain includes it in the policy chain automatically, provided the repo is trusted. An untrusted file shows `[untrusted]` and is skipped in evaluation.
 
 ```
   [repo] /Users/you/infra/.failsafe.rego [untrusted]
@@ -73,7 +73,7 @@ Trust the repo first: `failsafe trust add .`
 
 ## Commands with pipeline or chained operators
 
-explain handles full shell syntax — pipes, `&&`, `;`, env-variable prefixes, and absolute binary paths:
+explain handles full shell syntax: pipes, `&&`, `;`, env-variable prefixes, and absolute binary paths:
 
 ```bash
 failsafe explain "KUBECONFIG=~/.kube/prod.yaml kubectl apply -f deploy.yaml"
@@ -105,4 +105,4 @@ No decision is printed because failsafe would allow the command through.
 - [Wire failsafe into Claude Code](./claude-code-hook.md)
 - [Policy cascade](../explanation/policy-cascade.md)
 - [Fact schema](../reference/fact-schema.md)
-- [CLI reference — explain](../reference/cli.md#explain)
+- [CLI reference: explain](../reference/cli.md#explain)

@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Configuration Reference
 
-All file paths and environment variables that configure failsafe — each with its default value and effect.
+All file paths and environment variables that configure failsafe, each with its default value and effect.
 
 ---
 
@@ -17,14 +17,14 @@ All paths under `~/.config/failsafe/` are created by failsafe as needed (mode 07
 
 | Path | Layer | Description |
 |------|-------|-------------|
-| `~/.config/failsafe/policy.rego` | User | User-level Rego policy. Must declare `package guard.user`. May contain `block` rules only — `allow_override` is reserved for the repo layer. Loaded on every hook call; missing file is silently skipped. |
+| `~/.config/failsafe/policy.rego` | User | User-level Rego policy. Must declare `package guard.user`. May contain `block` rules only; `allow_override` is reserved for the repo layer. Loaded on every hook call; missing file is silently skipped. |
 | `.failsafe.rego` | Repo | Repository-level Rego policy, placed at the repo root. Must declare `package guard.repo`. May contain both `block` and `allow_override` rules. Ignored until the repo is trusted via `failsafe trust`. Discovered by walking up from the effective `cwd` toward `$HOME` (exclusive). Multiple `.failsafe.rego` files in nested directories are all loaded. |
 
 ### Tool definitions
 
 | Path | Description |
 |------|-------------|
-| `~/.config/failsafe/tools/` | Directory of user-supplied YAML tool definitions (`*.yaml`). Each file defines a new tool parser — binary name(s), global flags, verb/subverb list. Loaded alongside the bundled tool definitions on every hook call. A malformed file is a fatal error (fail-closed). |
+| `~/.config/failsafe/tools/` | Directory of user-supplied YAML tool definitions (`*.yaml`). Each file defines a new tool parser: binary name(s), global flags, verb/subverb list. Loaded alongside the bundled tool definitions on every hook call. A malformed file is a fatal error (fail-closed). |
 
 See `examples/tools/` in the repo for YAML tool templates.
 
@@ -51,11 +51,11 @@ See `examples/tools/` in the repo for YAML tool templates.
 | `session.agent_session_id` | string | Claude Code session ID from the hook envelope. |
 | `session.terminal_pane` | string | Terminal pane identifier (the value of whichever pane env var was set: `WEZTERM_PANE`, `TMUX_PANE`, etc.). |
 
-**Redaction patterns** — the following patterns in `command` are masked to `***` before logging:
+**Redaction patterns:** the following patterns in `command` are masked to `***` before logging:
 
-- `--<flag-with-secret-name>=<value>` — any flag whose name contains `token`, `secret`, `password`, `passwd`, `credential`, `api-key`, `apikey`, `auth`, or `bearer`.
-- `--<flag-with-secret-name> <value>` — same, space-separated form.
-- `KEY=<value>` — any environment assignment whose key contains the same terms.
+- `--<flag-with-secret-name>=<value>`: any flag whose name contains `token`, `secret`, `password`, `passwd`, `credential`, `api-key`, `apikey`, `auth`, or `bearer`.
+- `--<flag-with-secret-name> <value>`: same, space-separated form.
+- `KEY=<value>`: any environment assignment whose key contains the same terms.
 
 ### Trust list
 

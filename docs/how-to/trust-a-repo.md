@@ -38,7 +38,7 @@ If the repo is already trusted, the command exits cleanly:
 ```
 
 !!! note "What counts as the repo root?"
-    `failsafe trust add .` walks up from the current directory until it finds a `.failsafe.rego` file, stopping at `$HOME`. That directory becomes the trusted path. If no `.failsafe.rego` is found, the command prints an error — create the policy file first (see [Protect a repo with a checked-in policy](./repo-policy.md)).
+    `failsafe trust add .` walks up from the current directory until it finds a `.failsafe.rego` file, stopping at `$HOME`. That directory becomes the trusted path. If no `.failsafe.rego` is found, the command prints an error. Create the policy file first (see [Protect a repo with a checked-in policy](./repo-policy.md)).
 
 ## List trusted repos
 
@@ -100,4 +100,4 @@ If you still see `[untrusted]`, the path recorded in the trust list does not mat
 - [Protect a repo with a checked-in policy](./repo-policy.md)
 - [Explain a command](./explain-a-command.md)
 - [Trust model](../explanation/trust-model.md)
-- [CLI reference — trust](../reference/cli.md#trust)
+- [CLI reference: trust](../reference/cli.md#trust)

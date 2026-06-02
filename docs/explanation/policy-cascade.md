@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Policy Cascade
 
-failsafe evaluates every command against a chain of three policy layers. Each layer is a separate Rego file (or a directory of them). They are loaded in order — **bundled → user → repo** — and the engine combines their outputs into a single decision before replying to the agent.
+failsafe evaluates every command against a chain of three policy layers. Each layer is a separate Rego file (or a directory of them). They are loaded in order (**bundled → user → repo**), and the engine combines their outputs into a single decision before replying to the agent.
 
 This page explains what each layer is for, how decisions combine, and why only the repo layer is permitted to loosen rules that a higher layer has blocked.
 
@@ -21,7 +21,7 @@ You did not write these rules, and you cannot edit them without rebuilding the b
 
 ### User
 
-The user layer lives at `~/.config/failsafe/policy.rego`. It is personal policy — additions or tightenings that reflect your own working practices regardless of which project you are in. For example, you might add a block rule that prevents any mutation against clusters whose names contain `prod` or `production`, regardless of what mode the pane is in.
+The user layer lives at `~/.config/failsafe/policy.rego`. It is personal policy: additions or tightenings that reflect your own working practices regardless of which project you are in. For example, you might add a block rule that prevents any mutation against clusters whose names contain `prod` or `production`, regardless of what mode the pane is in.
 
 The user layer can add new `block` rules. It cannot override a bundled block.
 
@@ -31,7 +31,7 @@ The repo layer is a `.failsafe.rego` file discovered by walking up from the curr
 
 Because it travels with the repo, the repo layer is the right place for project-specific rules: allow `kubectl apply --dry-run=server` unconditionally (it is safe), block any mutation against a specific cluster name that is reserved for production, or tighten the rules for a sensitive service directory.
 
-Crucially, the repo layer is the **only** layer that may declare `allow_override` rules — the mechanism for loosening a bundled or user block. This restriction is enforced at compile time: if a bundled or user module contains an `allow_override` rule head, the engine rejects it with an error rather than loading the policy.
+The repo layer is the **only** layer that may declare `allow_override` rules, the mechanism for loosening a bundled or user block. This restriction is enforced at compile time: if a bundled or user module contains an `allow_override` rule head, the engine rejects it with an error rather than loading the policy.
 
 ---
 
@@ -45,7 +45,7 @@ The outcome follows a single rule:
 
 More precisely:
 
-1. If any `block` rule fires with a malformed output (not a `{"reason": "..."}` object), the command is blocked immediately and the malformed reason is surfaced. A buggy block rule still blocks — it does not silently allow.
+1. If any `block` rule fires with a malformed output (not a `{"reason": "..."}` object), the command is blocked immediately and the malformed reason is surfaced. A buggy block rule still blocks; it does not silently allow.
 2. If any `allow_override` fires with a malformed output, that override is ignored. A buggy override does not free a real block.
 3. If one or more well-formed `block` rules fire and no well-formed `allow_override` cancels them, the command is blocked. The reason surfaced is from the block rule closest to the current working directory (a repo-level block in the project root wins over the user layer, which wins over bundled).
 4. If one or more `block` rules fire and at least one well-formed `allow_override` cancels them, the command is allowed, and the override reason is returned to the agent.
@@ -73,14 +73,14 @@ The practical effect: when you see a `failsafe allowed (override)` decision in t
 
 ## Reason precedence
 
-When multiple layers fire block rules simultaneously, the engine surfaces the reason from the closest rule to the current working directory. A `.failsafe.rego` at the project root is closer than one two directories up, which is closer than the user layer, which is closer than bundled. This makes the displayed reason as specific and actionable as possible — you see the project rule that fired, not a generic bundled reason that also fired.
+When multiple layers fire block rules simultaneously, the engine surfaces the reason from the closest rule to the current working directory. A `.failsafe.rego` at the project root is closer than one two directories up, which is closer than the user layer, which is closer than bundled. This makes the displayed reason as specific and actionable as possible: you see the project rule that fired, not a generic bundled reason that also fired.
 
-The `failsafe explain <cmd>` command shows the full trace — every rule that fired, its layer, file, and line number — so you can see the complete picture when the primary reason is not enough.
+The `failsafe explain <cmd>` command shows the full trace (every rule that fired, its layer, file, and line number) so you can see the complete picture when the primary reason is not enough.
 
 ---
 
 ## Where to go next
 
-- [Trust Model](./trust-model.md) — what happens to a repo's `allow_override` rules before trust is granted
-- [Why failsafe](./why-failsafe.md) — the comprehension-first approach that makes structured facts possible
-- [How to write a policy](../how-to/per-cluster-policy.md) — practical guide to writing your own block and override rules
+- [Trust Model](./trust-model.md): what happens to a repo's `allow_override` rules before trust is granted
+- [Why failsafe](./why-failsafe.md): the comprehension-first approach that makes structured facts possible
+- [How to write a policy](../how-to/per-cluster-policy.md): practical guide to writing your own block and override rules

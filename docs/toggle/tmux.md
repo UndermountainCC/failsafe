@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 failsafe resolves the current pane's mode from `~/.claude/pane-mode/$TMUX_PANE` (see the
 mode-source chain in the README). tmux's `#{pane_id}` format **equals** that `$TMUX_PANE`
-env var, so a key binding can write the exact file the guard reads — instant, no chain
+env var, so a key binding can write the exact file the guard reads instantly, with no chain
 ambiguity. Missing file = `read` (the safe default).
 
 Bind a key to flip the focused pane between `read` and `read & write`.
@@ -15,7 +15,7 @@ Bind a key to flip the focused pane between `read` and `read & write`.
 ## 1. The toggle helper
 
 Save as `~/.config/failsafe/tmux-toggle.sh` and `chmod +x` it. Writing the file directly
-by pane id is the robust path — it sidesteps env edge cases when tmux runs *inside*
+by pane id is the robust path: it sidesteps env edge cases when tmux runs *inside*
 WezTerm/iTerm (where the chain might otherwise prefer a different pane var).
 
 ```bash
@@ -36,7 +36,7 @@ tmux display-message "🔒 failsafe: $current → $next"
 
 ## 2. The key binding
 
-In `~/.tmux.conf` — `Ctrl+Alt+T` with no prefix (mirrors the WezTerm binding):
+In `~/.tmux.conf`, `Ctrl+Alt+T` with no prefix (mirrors the WezTerm binding):
 
 ```tmux
 bind -n C-M-t run-shell "~/.config/failsafe/tmux-toggle.sh '#{pane_id}'"
@@ -73,14 +73,14 @@ set -g status-right "#(~/.config/failsafe/tmux-status.sh '#{pane_id}') | %H:%M "
 ```
 
 The `#[fg=…]` codes are interpreted by tmux, so a writable pane glows amber and reads
-`🔓 sudo` — failsafe's `sudo` (see the WezTerm guide's
+`🔓 sudo`, failsafe's `sudo` (see the WezTerm guide's
 [*"sudo mode"*](wezterm.md#make-it-yours-sudo-mode) section for the full meme and the
 auto-revert *sudo timeout* trick, which works here too: append
 `( sleep 600; echo read > "$file" ) &` after the write in `tmux-toggle.sh`).
 
 ## Alternative: no helper script
 
-If you'd rather not save a script, let `failsafe toggle` do it — but explicitly clear the
+If you'd rather not save a script, let `failsafe toggle` do it, but explicitly clear the
 other pane vars so the mode-source chain can't pick the wrong one when tmux is nested
 inside WezTerm/iTerm:
 
@@ -92,8 +92,8 @@ bind -n C-M-t run-shell "WEZTERM_PANE= ITERM_SESSION_ID= TMUX_PANE='#{pane_id}' 
 
 ## Notes
 
-- The file always stores the **canonical** value (`read` / `read & write`) — the same
-  thing `failsafe mode set rw` / `ro` normalize to — so the toggle, the status bar, and
+- The file always stores the **canonical** value (`read` / `read & write`), the same
+  thing `failsafe mode set rw` / `ro` normalize to, so the toggle, the status bar, and
   the CLI all agree.
 - `$TMUX_PANE` (e.g. `%5`) is unique per pane and stable for the pane's life, so each
   split keeps its own mode.

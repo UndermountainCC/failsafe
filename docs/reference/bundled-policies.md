@@ -7,13 +7,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 The exact verbs and subverbs allowed or blocked by each bundled policy in `read` mode.
 
-Bundled policies live in `internal/embed/policies/` and are compiled into the binary. They are always the first layer in the chain (evaluated before user and repo policies). In `read & write` mode, no bundled `block` rule fires — mode is checked as the first condition in every rule.
+Bundled policies live in `internal/embed/policies/` and are compiled into the binary. They are always the first layer in the chain (evaluated before user and repo policies). In `read & write` mode, no bundled `block` rule fires. Mode is checked as the first condition in every rule.
 
 Policy packages follow the naming convention `guard.bundled.<tool>`.
 
 ---
 
-## `kubectl` — `guard.bundled.kubectl`
+## `kubectl`: `guard.bundled.kubectl`
 
 Source: `internal/embed/policies/kubectl.rego`
 
@@ -25,7 +25,7 @@ version  cluster-info  config  explain
 api-resources  api-versions  auth  diff  wait
 ```
 
-**Special carve-out — `apply --dry-run`:** `kubectl apply` with `--dry-run=client`, `--dry-run=server`, or `--dry-run=true` is allowed even in read mode.
+**Special carve-out for `apply --dry-run`:** `kubectl apply` with `--dry-run=client`, `--dry-run=server`, or `--dry-run=true` is allowed even in read mode.
 
 **All other verbs are blocked** with reason: `"kubectl <verb> blocked in read mode"`.
 
@@ -56,7 +56,7 @@ allowed_dry_run if {
 
 ---
 
-## `helm` — `guard.bundled.helm`
+## `helm`: `guard.bundled.helm`
 
 Source: `internal/embed/policies/helm.rego`
 
@@ -66,7 +66,7 @@ Source: `internal/embed/policies/helm.rego`
 list  get  status  show  search  version  history  template
 ```
 
-**`repo` verb — special subverb handling:** `helm repo list` is allowed; any other `helm repo <subverb>` (e.g. `add`, `remove`, `update`) is blocked with reason `"helm repo <subverb> blocked in read mode"`.
+**`repo` verb, special subverb handling:** `helm repo list` is allowed; any other `helm repo <subverb>` (e.g. `add`, `remove`, `update`) is blocked with reason `"helm repo <subverb> blocked in read mode"`.
 
 **All other verbs are blocked** with reason `"helm <verb> blocked in read mode"`.
 
@@ -95,7 +95,7 @@ block contains {"reason": sprintf("helm repo %s blocked in read mode", [input.su
 
 ---
 
-## `terraform` / `tofu` — `guard.bundled.terraform`
+## `terraform` / `tofu`: `guard.bundled.terraform`
 
 Source: `internal/embed/policies/terraform.rego`
 
@@ -107,7 +107,7 @@ Both `terraform` and `tofu` binaries are matched by the same tool parser and eva
 plan  show  output  validate  fmt  providers  version  graph
 ```
 
-**`state` verb — special subverb handling:** `terraform state list` and `terraform state show` are allowed; any other subverb (e.g. `mv`, `rm`, `pull`, `push`) is blocked with reason `"terraform state <subverb> blocked in read mode"`.
+**`state` verb, special subverb handling:** `terraform state list` and `terraform state show` are allowed; any other subverb (e.g. `mv`, `rm`, `pull`, `push`) is blocked with reason `"terraform state <subverb> blocked in read mode"`.
 
 **All other verbs are blocked** with reason `"terraform <verb> blocked in read mode"`.
 
@@ -136,7 +136,7 @@ block contains {"reason": sprintf("terraform state %s blocked in read mode", [in
 
 ---
 
-## `aws` — `guard.bundled.aws`
+## `aws`: `guard.bundled.aws`
 
 Source: `internal/embed/policies/aws.rego`
 
@@ -151,8 +151,8 @@ The AWS CLI uses a `<service> <operation>` pattern, parsed as `verb` (service) +
 
 **Blocked in read mode:**
 
-- `aws s3 <subverb>` where `subverb` is not `ls` and not empty — reason: `"aws s3 <subverb> blocked in read mode"`.
-- Any `aws <service> <operation>` where service is not `sts` or `s3`, operation is not empty, and operation does not start with `describe-`, `list-`, or `get-` — reason: `"aws <service> <operation> blocked in read mode"`.
+- `aws s3 <subverb>` where `subverb` is not `ls` and not empty. Reason: `"aws s3 <subverb> blocked in read mode"`.
+- Any `aws <service> <operation>` where service is not `sts` or `s3`, operation is not empty, and operation does not start with `describe-`, `list-`, or `get-`. Reason: `"aws <service> <operation> blocked in read mode"`.
 
 Examples of blocked operations: `aws s3 rm`, `aws ec2 run-instances`, `aws ec2 terminate-instances`, `aws eks create-cluster`, `aws eks delete-cluster`, `aws iam create-role`, `aws ecr batch-delete-image`.
 
@@ -184,25 +184,25 @@ is_read_action(action) if startswith(action, "get-")
 
 ---
 
-## `git` — `guard.bundled.git`
+## `git`: `guard.bundled.git`
 
 Source: `internal/embed/policies/git.rego`
 
-The bundled git policy is **intentionally empty** — it declares no `block` rules. Git is allowed by default. Individual repos enforce their own constraints (force-push guards, branch protections) via `.failsafe.rego`.
+The bundled git policy is **intentionally empty**: it declares no `block` rules. Git is allowed by default. Individual repos enforce their own constraints (force-push guards, branch protections) via `.failsafe.rego`.
 
 The file exists so that `failsafe policies list` includes `git` in the bundled set, making the coverage explicit.
 
 ---
 
-## `failsafe` — `guard.bundled.failsafe`
+## `failsafe`: `guard.bundled.failsafe`
 
 Source: `internal/embed/policies/failsafe.rego`
 
-This policy guards the `failsafe` binary itself (dogfood). Rules fire **regardless of mode** — the `read`/`read & write` distinction does not apply.
+This policy guards the `failsafe` binary itself (dogfood). Rules fire **regardless of mode**: the `read`/`read & write` distinction does not apply.
 
 | Verb | Decision | Reason |
 |------|----------|--------|
-| `toggle` | BLOCK | `"failsafe toggle is user-only — toggle from your terminal (hotkey or failsafe toggle typed yourself), never via Claude"` |
+| `toggle` | BLOCK | `"failsafe toggle is user-only: toggle from your terminal (hotkey or failsafe toggle typed yourself), never via Claude"` |
 | `hook` | BLOCK | `"failsafe hook is a lifecycle subprocess started by Claude Code; not for direct tool invocation"` |
 | `mcp` | BLOCK | `"failsafe mcp is a lifecycle subprocess started by Claude Code; not for direct tool invocation"` |
 

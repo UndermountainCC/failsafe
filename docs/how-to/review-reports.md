@@ -85,7 +85,7 @@ failsafe report --since 24h --format json | jq '.counts[] | select(.decision == 
 
 ## Share a scrubbed report
 
-`--share` redacts deployment-identifying data — file paths and cloud ARNs — before output, so the report is safe to paste in a ticket or share with a teammate:
+`--share` redacts deployment-identifying data (file paths and cloud ARNs) before output, so the report is safe to paste in a ticket or share with a teammate:
 
 ```bash
 failsafe report --share
@@ -96,7 +96,7 @@ Secrets (tokens, passwords, credential flags) are always redacted in the raw log
 
 ## Where the log lives
 
-All decisions are written to `~/.config/failsafe/decisions.jsonl`. Each line is a JSON record. Only commands involving a guarded tool (`kubectl`, `helm`, `terraform`, `aws`, `git`) are logged — `ls`, `echo`, and similar pass-through silently.
+All decisions are written to `~/.config/failsafe/decisions.jsonl`. Each line is a JSON record. Only commands involving a guarded tool (`kubectl`, `helm`, `terraform`, `aws`, `git`) are logged. `ls`, `echo`, and similar pass-through silently.
 
 To inspect raw records:
 
@@ -108,4 +108,4 @@ tail -f ~/.config/failsafe/decisions.jsonl | jq .
 
 - [Explain a command](./explain-a-command.md)
 - [Bundled policies](../reference/bundled-policies.md)
-- [CLI reference — report](../reference/cli.md#report)
+- [CLI reference: report](../reference/cli.md#report)

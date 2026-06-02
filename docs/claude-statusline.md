@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Claude Code can render a custom status line at the bottom of the session. Wire failsafe
 into it and you always see whether the agent is in **🔒 read** (safe) or **🔓 write**
-(it can mutate) — no guessing, no surprise `kubectl apply`.
+(it can mutate). No guessing, and no surprise `kubectl apply`.
 
 The snippet: [`examples/claude-statusline.sh`](https://github.com/UndermountainCC/failsafe/blob/main/examples/claude-statusline.sh).
 
@@ -47,7 +47,7 @@ Because it reads the same per-pane mode the guard enforces, the line flips the i
    }
    ```
 
-3. Start (or restart) Claude Code — the guard mode now lives in the status line.
+3. Start (or restart) Claude Code: the guard mode now lives in the status line.
 
 ## Notes
 
