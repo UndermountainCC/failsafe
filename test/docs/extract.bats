@@ -19,5 +19,6 @@ EX() { bash "$DOCS_REPO_ROOT/test/docs/lib/extract.sh" "$@"; }
 
 @test "extract.sh without anchor counts globally" {
   run EX "$DOCS_REPO_ROOT/docs/claude-statusline.md" json 1
+  [ "$status" -eq 0 ]
   [[ "$output" == *'"statusLine"'* ]]
 }
