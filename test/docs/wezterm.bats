@@ -12,11 +12,16 @@ teardown() { teardown_sandbox; }
   [ "$status" -eq 0 ]
 }
 
-@test "wezterm snippet passes luacheck (no syntax errors)" {
+@test "wezterm snippet has no luacheck errors" {
   need luacheck
   extract_block "$WZ" lua 1 "Drop-in snippet" > "$TEST_HOME/snip.lua"
-  run luacheck --globals wezterm --no-unused --no-max-line-length "$TEST_HOME/snip.lua"
-  [[ "$output" != *"syntax error"* ]]
+  run luacheck --globals wezterm --no-max-line-length "$TEST_HOME/snip.lua"
+  # luacheck must actually have analyzed the file: a functional run always prints a
+  # "Total:" summary footer. If it's absent (e.g. luacheck's own runtime is broken
+  # under this Lua version), skip honestly rather than pass vacuously.
+  [[ "$output" == *"Total:"* ]] || skip "luacheck runtime not functional here (no report produced)"
+  # It ran — require zero ERRORS (syntax/parse). Style warnings are tolerated.
+  [[ "$output" == *"0 errors"* ]]
 }
 
 @test "toggle action writes canonical and failsafe agrees" {
