@@ -40,6 +40,9 @@ run_sl() { # $1 = json; pipes it into the real script
   local p; p="$(make_nojq_path)"
   run env PATH="$p" "$SL" <<< "${JSON/\%CWD\%//tmp/x}"
   [[ "$output" == "failsafe 🔓 write"* ]]
+  # Prove the jq-enrichment branch was actually skipped (no cwd appended), not
+  # merely that the guard label survived.
+  [[ "$output" != *"/tmp/x"* ]]
 }
 
 @test "output is a single line" {
