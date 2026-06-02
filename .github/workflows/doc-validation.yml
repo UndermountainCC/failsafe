@@ -24,4 +24,4 @@ jobs:
           go build -o "$RUNNER_TEMP/bin/failsafe" ./cmd/failsafe
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Run headless doc validation
-        run: bats test/docs/*.bats
+        run: bats --print-output-on-failure test/docs/*.bats

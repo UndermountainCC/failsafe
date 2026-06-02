@@ -43,9 +43,12 @@ teardown() {
   printf "bind -n C-M-t run-shell \"%s '#{pane_id}'\"\n" "$TOGGLE" > "$conf"
   tmux -L "$SOCK" -f "$conf" new-session -d -s s
   run tmux -L "$SOCK" list-keys -T root
-  [[ "$output" == *"C-M-t"* ]]
+  [ "$status" -eq 0 ]
+  # Stable assertions first: the binding targets our toggle script and passes the pane id.
   [[ "$output" == *"$TOGGLE"* ]]
   [[ "$output" == *'#{pane_id}'* ]]
+  # The key itself — tmux versions differ on modifier ordering (C-M-t vs M-C-t).
+  [[ "$output" == *"C-M-t"* || "$output" == *"M-C-t"* ]]
 }
 
 @test "status script colors writable amber / read green" {
