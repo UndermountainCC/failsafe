@@ -36,6 +36,7 @@ teardown() { teardown_sandbox; }
     [ "$(read_mode_file "%a")" = "read & write" ]
   done
   for a in ro r read; do
+    write_mode_file "%a" "read & write"
     WEZTERM_PANE="%a" failsafe mode set "$a"
     [ "$(read_mode_file "%a")" = "read" ]
   done
