@@ -10,6 +10,9 @@ SPDX-License-Identifier: CC-BY-4.0
 [![status](https://img.shields.io/badge/status-v0.1.0--dev-orange)](#-status--license)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 [![privacy](https://img.shields.io/badge/privacy-local--first%20·%20zero%20network-brightgreen)](#-why-failsafe)
+[![docs](https://img.shields.io/badge/docs-undermountain.cc-blue)](https://undermountain.cc/labs/failsafe/)
+
+📚 **Full documentation:** [undermountain.cc/labs/failsafe](https://undermountain.cc/labs/failsafe/)
 
 Your AI coding agent has your cloud credentials and a shell. **failsafe** sits in front of
 every command it runs and blocks the irreversible ones — `kubectl delete` on prod,
