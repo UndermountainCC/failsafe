@@ -1,4 +1,4 @@
-package guard.bundled.kubectl
+package failsafe.bundled.kubectl
 
 import future.keywords.if
 import future.keywords.in
@@ -10,9 +10,9 @@ read_verbs := {
     "api-resources", "api-versions", "auth", "diff", "wait",
 }
 
-# Block all non-read verbs in read mode, except --dry-run forms of `apply`.
-block contains {"reason": sprintf("kubectl %s blocked in read mode", [input.verb])} if {
-    input.mode == "read"
+# Block all non-read verbs while failsafe is enabled, except --dry-run forms of `apply`.
+block contains {"reason": sprintf("kubectl %s blocked while failsafe is enabled", [input.verb])} if {
+    not input.failsafe_enabled == false
     input.tool == "kubectl"
     input.verb != ""
     not input.verb in read_verbs

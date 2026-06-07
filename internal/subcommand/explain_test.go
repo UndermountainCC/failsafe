@@ -18,7 +18,7 @@ func TestExplain_BlockShowsReason(t *testing.T) {
 	if !strings.Contains(out.String(), "Decision: BLOCK") {
 		t.Errorf("missing BLOCK in output: %s", out.String())
 	}
-	if !strings.Contains(out.String(), "kubectl apply blocked in read mode") {
+	if !strings.Contains(out.String(), "kubectl apply blocked while failsafe is enabled") {
 		t.Errorf("missing reason: %s", out.String())
 	}
 }

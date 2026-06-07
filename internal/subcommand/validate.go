@@ -31,25 +31,27 @@ func Validate(path string, out io.Writer, opts ValidateOptions) int {
 	}
 	fmt.Fprintln(out, "✓ parse OK")
 
-	expectedPkg := expectedPackage(path)
+	expectedSuffix := expectedPackage(path)
 	gotPkg := mod.Package.Path.String()
-	// Path strings are like "data.guard.repo"; trim "data."
+	// Path strings are like "data.guard.repo" or "data.failsafe.repo"; trim "data."
 	gotPkg = strings.TrimPrefix(gotPkg, "data.")
-	// expectedPkg == "" is the "skip strict check" sentinel for paths whose
+	// expectedSuffix == "" is the "skip strict check" sentinel for paths whose
 	// layer can't be inferred from the filename alone (e.g., user-managed
 	// example files at arbitrary paths). In that case we infer the layer
 	// from the package declaration itself.
-	if expectedPkg != "" && gotPkg != expectedPkg {
-		fmt.Fprintf(out, "✗ package: got %q, want %q (based on filename)\n", gotPkg, expectedPkg)
+	// When expectedSuffix is non-empty ("repo" or "user"), we compare the
+	// suffix of the declared package — this accepts BOTH guard.repo and
+	// failsafe.repo (dual-namespace support).
+	if expectedSuffix != "" && layerSuffix(gotPkg) != expectedSuffix {
+		fmt.Fprintf(out, "✗ package: got %q, want suffix %q (e.g. guard.%s or failsafe.%s, based on filename)\n",
+			gotPkg, expectedSuffix, expectedSuffix, expectedSuffix)
 		return 1
 	}
 	fmt.Fprintf(out, "✓ package: %s\n", gotPkg)
 
-	// If filename gave us no layer hint, use the declared package to pick rule allowlist.
-	allowedKey := expectedPkg
-	if allowedKey == "" {
-		allowedKey = gotPkg
-	}
+	// allowedKey is the full declared package — used by forbiddenRuleNames /
+	// summarizeAllowed which internally call layerSuffix / isRepoLayer.
+	allowedKey := gotPkg
 	// Reserved-rule check: only "block" is universally allowed; "allow_override"
 	// is allowed only in the repo layer; helper rules (read_verbs, allowed_dry_run,
 	// is_read_action, etc.) are FREE — Rego naturally namespaces helpers within
@@ -169,34 +171,54 @@ func refField(ref ast.Ref) string {
 	return ""
 }
 
-// expectedPackage returns the expected `package guard.X` based on filename.
+// layerSuffix strips a guard. or failsafe. namespace prefix, returning e.g.
+// "repo" / "user" / "bundled.kubectl". Accepts both legacy and new namespace.
+func layerSuffix(pkg string) string {
+	for _, p := range []string{"failsafe.", "guard."} {
+		if strings.HasPrefix(pkg, p) {
+			return strings.TrimPrefix(pkg, p)
+		}
+	}
+	return pkg
+}
+
+// isRepoLayer reports whether pkg is the repo layer in either namespace.
+func isRepoLayer(pkg string) bool { return layerSuffix(pkg) == "repo" }
+
+// expectedPackage returns the expected package path for well-known filenames,
+// or "" when the filename gives no layer hint (skip strict equality check).
+// For known filenames we accept EITHER the legacy guard.* OR the new failsafe.*
+// namespace by returning "" and relying on layerSuffix in forbiddenRuleNames.
 func expectedPackage(path string) string {
 	base := filepath.Base(path)
 	switch {
 	case base == ".failsafe.rego":
-		return "guard.repo"
+		// Accept either guard.repo or failsafe.repo — return "" and rely on
+		// layerSuffix to classify. But we still need to reject wrong.name, so
+		// we use the suffix check in the caller rather than strict equality.
+		return "repo" // sentinel: caller will compare layerSuffix(gotPkg) == expectedPackage
 	case base == "policy.rego" && strings.Contains(path, "/.config/failsafe/"):
-		return "guard.user"
+		return "user" // same sentinel approach
 	default:
-		// bundled: package name should be guard.bundled.<tool>; we don't validate
-		// the <tool> part here, just accept any guard.bundled.* prefix.
-		return "" // empty means "skip strict check, accept guard.* prefixes"
+		// bundled: package name should be {guard,failsafe}.bundled.<tool>;
+		// we don't validate the <tool> part here, just accept either prefix.
+		return "" // empty means "skip strict check"
 	}
 }
 
 // forbiddenRuleNames returns the set of RESERVED rule names that this layer
 // must NOT declare. Helper rules (anything not in this set) are always free.
-//   - guard.repo: nothing reserved (both block and allow_override permitted)
-//   - guard.user / guard.bundled.* / unknown: allow_override is reserved
+//   - repo layer (guard.repo or failsafe.repo): nothing reserved
+//   - user / bundled / unknown: allow_override is reserved
 func forbiddenRuleNames(pkg string) map[string]bool {
-	if pkg == "guard.repo" {
+	if isRepoLayer(pkg) {
 		return map[string]bool{}
 	}
 	return map[string]bool{"allow_override": true}
 }
 
 func summarizeAllowed(pkg string) string {
-	if pkg == "guard.repo" {
+	if isRepoLayer(pkg) {
 		return "block + allow_override"
 	}
 	return "block"

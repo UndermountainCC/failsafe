@@ -2,7 +2,7 @@
 # polices failsafe). All rules below fire regardless of mode — the
 # read/read-and-write distinction is for kubectl/helm/etc. interactive
 # mutations, not for the LLM toggling its own safety boundary.
-package guard.bundled.failsafe
+package failsafe.bundled.failsafe
 
 import future.keywords.if
 import future.keywords.contains

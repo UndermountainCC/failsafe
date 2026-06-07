@@ -1,4 +1,4 @@
-package guard.bundled.git
+package failsafe.bundled.git
 
 import future.keywords.if
 import future.keywords.in

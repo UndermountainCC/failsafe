@@ -177,3 +177,68 @@ block contains {"reason": "x"} if {
 		t.Errorf("known fact fields should not warn under --strict; exit=%d, out=%q", code, out.String())
 	}
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Dual-namespace tests (Task 3.3): both guard.* and failsafe.* must validate.
+
+func TestValidate_DualNamespace_FailsafeRepo(t *testing.T) {
+	// New failsafe.repo namespace in a .failsafe.rego file must be accepted.
+	path := writePolicy(t, ".failsafe.rego", `package failsafe.repo
+import future.keywords.if
+import future.keywords.contains
+
+block contains {"reason": "x"} if { true }
+allow_override contains {"reason": "y"} if { true }
+`)
+	var out bytes.Buffer
+	code := Validate(path, &out, ValidateOptions{})
+	if code != 0 {
+		t.Errorf("failsafe.repo should be accepted; exit=%d, out=%q", code, out.String())
+	}
+}
+
+func TestValidate_DualNamespace_GuardRepo_Legacy(t *testing.T) {
+	// Legacy guard.repo namespace must still be accepted.
+	path := writePolicy(t, ".failsafe.rego", `package guard.repo
+import future.keywords.if
+import future.keywords.contains
+
+block contains {"reason": "x"} if { true }
+allow_override contains {"reason": "y"} if { true }
+`)
+	var out bytes.Buffer
+	code := Validate(path, &out, ValidateOptions{})
+	if code != 0 {
+		t.Errorf("legacy guard.repo should still be accepted; exit=%d, out=%q", code, out.String())
+	}
+}
+
+func TestValidate_DualNamespace_GuardUser_Legacy(t *testing.T) {
+	// Legacy guard.user namespace (without allow_override) must still pass.
+	path := writePolicy(t, "policy.rego", `package guard.user
+import future.keywords.if
+import future.keywords.contains
+
+block contains {"reason": "x"} if { true }
+`)
+	var out bytes.Buffer
+	code := Validate(path, &out, ValidateOptions{})
+	if code != 0 {
+		t.Errorf("legacy guard.user should still be accepted; exit=%d, out=%q", code, out.String())
+	}
+}
+
+func TestValidate_DualNamespace_WrongPackage_Rejected(t *testing.T) {
+	// Neither guard.repo nor failsafe.repo: must be rejected.
+	path := writePolicy(t, ".failsafe.rego", `package wrong.namespace
+import future.keywords.if
+import future.keywords.contains
+
+block contains {"reason": "x"} if { true }
+`)
+	var out bytes.Buffer
+	code := Validate(path, &out, ValidateOptions{})
+	if code == 0 {
+		t.Errorf("wrong.namespace in .failsafe.rego should be rejected; out=%q", out.String())
+	}
+}
