@@ -9,37 +9,28 @@ import (
 	"testing"
 )
 
-func TestNormalizeMode(t *testing.T) {
-	cases := []struct {
-		in    string
-		want  string
-		valid bool
-	}{
-		{"rw", "read & write", true},
-		{"ro", "read", true},
-		{"r", "read", true},
-		{"w", "read & write", true},
-		{"RW", "read & write", true},  // case-insensitive
-		{"  ro  ", "read", true},      // trimmed
-		{"read", "read", true},        // canonical still accepted
-		{"read & write", "read & write", true},
-		{"read+write", "read & write", true},
-		{"readwrite", "read & write", true},
-		{"nonsense", "", false},
-		{"", "", false},
-	}
-	for _, c := range cases {
-		got, ok := normalizeMode(c.in)
-		if ok != c.valid || got != c.want {
-			t.Errorf("normalizeMode(%q) = (%q, %v), want (%q, %v)", c.in, got, ok, c.want, c.valid)
+func TestNormalizeModeMatrix(t *testing.T) {
+	enabled := []string{"enabled", "enable", "on", "closed", "close", "lock", "ro", "r", "read", "safe"}
+	disabled := []string{"disabled", "disable", "off", "open", "unlock", "rw", "w", "write", "sudo"}
+	for _, a := range enabled {
+		if got, ok := normalizeMode(a); !ok || got != "enabled" {
+			t.Fatalf("%q -> %q,%v; want enabled", a, got, ok)
 		}
+	}
+	for _, a := range disabled {
+		if got, ok := normalizeMode(a); !ok || got != "disabled" {
+			t.Fatalf("%q -> %q,%v; want disabled", a, got, ok)
+		}
+	}
+	if _, ok := normalizeMode("bogus"); ok {
+		t.Fatal("bogus should not normalize")
 	}
 }
 
 // The whole point of the change: `mode set rw` must write the canonical value
 // the Rego policies match on, not the alias.
 func TestModeSet_ShortAliasesWriteCanonical(t *testing.T) {
-	cases := map[string]string{"rw": "read & write", "ro": "read"}
+	cases := map[string]string{"rw": "disabled", "ro": "enabled"}
 	for alias, canon := range cases {
 		chain, dir, path := tempChain(t)
 		var out bytes.Buffer

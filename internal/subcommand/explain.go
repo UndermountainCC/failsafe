@@ -73,7 +73,7 @@ func Explain(cmdArgs []string, out io.Writer, opts ExplainOptions) int {
 	}
 	mode := opts.Mode
 	if mode == "" {
-		mode = "read"
+		mode = "enabled"
 	}
 
 	engineByCwd := map[string]*policy.Engine{}

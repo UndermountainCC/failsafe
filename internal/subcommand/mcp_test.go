@@ -57,8 +57,8 @@ func TestMCP_InitializeReturnsProtocol(t *testing.T) {
 		t.Errorf("protocolVersion=%v, want 2024-11-05", got)
 	}
 	server, _ := result["serverInfo"].(map[string]any)
-	if got := server["name"]; got != "guard" {
-		t.Errorf("serverInfo.name=%v, want guard", got)
+	if got := server["name"]; got != "failsafe" {
+		t.Errorf("serverInfo.name=%v, want failsafe", got)
 	}
 	if got := server["version"]; got != "1.0.0" {
 		t.Errorf("serverInfo.version=%v, want 1.0.0", got)
@@ -76,8 +76,8 @@ func TestMCP_ToolsListReturnsTwoTools(t *testing.T) {
 		t.Fatalf("want 2 tools, got %d", len(tools))
 	}
 
-	wantCheckDesc := "Check the current infrastructure guard mode for this pane. Returns 'read' (destructive infra commands blocked) or 'read & write' (all commands allowed). Check this before attempting any kubectl/terraform/helm/aws mutating command."
-	wantToggleDesc := "Toggle the infrastructure guard mode for this pane between 'read' and 'read & write'. IMPORTANT: When you need to run a destructive infra command and the mode is 'read', you MUST call this tool and ask the user to approve the toggle. Do NOT try alternative approaches, workarounds, or suggest the user run the command manually. Stop and request the toggle."
+	wantCheckDesc := "Check whether failsafe is enabled for this pane. Returns `enabled` (destructive infra commands blocked) or `disabled` (all commands allowed). Check this before any kubectl/terraform/helm/aws mutating command."
+	wantToggleDesc := "Toggle failsafe for this pane between `enabled` and `disabled`. IMPORTANT: when you need a destructive infra command and failsafe is `enabled`, you MUST call this tool and ask the user to approve disabling it. Do NOT work around it or suggest the user run the command manually. Stop and request the toggle."
 
 	byName := map[string]map[string]any{}
 	for _, t0 := range tools {
@@ -133,7 +133,7 @@ func TestMCP_CheckModeReadsChain(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(modeFile), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(modeFile, []byte("read & write"), 0o644); err != nil {
+	if err := os.WriteFile(modeFile, []byte("disabled"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -146,11 +146,11 @@ func TestMCP_CheckModeReadsChain(t *testing.T) {
 	if err := json.Unmarshal([]byte(text), &payload); err != nil {
 		t.Fatalf("content text not JSON: %v (%q)", err, text)
 	}
-	if payload["mode"] != "read & write" {
-		t.Errorf("mode=%v, want 'read & write'", payload["mode"])
+	if payload["mode"] != "disabled" {
+		t.Errorf("mode=%v, want 'disabled'", payload["mode"])
 	}
-	if payload["label"] != "rw" {
-		t.Errorf("label=%v, want rw", payload["label"])
+	if payload["label"] != "disabled" {
+		t.Errorf("label=%v, want disabled", payload["label"])
 	}
 	if payload["pane_id"] != "session-abc" {
 		t.Errorf("pane_id=%v, want session-abc", payload["pane_id"])
@@ -160,13 +160,13 @@ func TestMCP_CheckModeReadsChain(t *testing.T) {
 func TestMCP_ToggleModeFlipsAndReturnsOldNew(t *testing.T) {
 	home := withIsolatedEnv(t, "ITERM_SESSION_ID", "session-xyz")
 
-	// Start in "read" (no file means default "read"; create it explicitly so
+	// Start in "enabled" (no file means default "enabled"; create it explicitly so
 	// the toggle has a deterministic source to write back to).
 	modeFile := filepath.Join(home, ".claude", "pane-mode", "session-xyz")
 	if err := os.MkdirAll(filepath.Dir(modeFile), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(modeFile, []byte("read"), 0o644); err != nil {
+	if err := os.WriteFile(modeFile, []byte("enabled"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -179,11 +179,11 @@ func TestMCP_ToggleModeFlipsAndReturnsOldNew(t *testing.T) {
 	if err := json.Unmarshal([]byte(text), &payload); err != nil {
 		t.Fatalf("content text not JSON: %v (%q)", err, text)
 	}
-	if payload["old"] != "read" {
-		t.Errorf("old=%v, want read", payload["old"])
+	if payload["old"] != "enabled" {
+		t.Errorf("old=%v, want enabled", payload["old"])
 	}
-	if payload["new"] != "read & write" {
-		t.Errorf("new=%v, want 'read & write'", payload["new"])
+	if payload["new"] != "disabled" {
+		t.Errorf("new=%v, want 'disabled'", payload["new"])
 	}
 	if payload["pane_id"] != "session-xyz" {
 		t.Errorf("pane_id=%v, want session-xyz", payload["pane_id"])
@@ -194,8 +194,8 @@ func TestMCP_ToggleModeFlipsAndReturnsOldNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(body) != "read & write" {
-		t.Errorf("mode file=%q, want 'read & write'", body)
+	if string(body) != "disabled" {
+		t.Errorf("mode file=%q, want 'disabled'", body)
 	}
 }
 

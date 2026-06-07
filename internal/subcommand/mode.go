@@ -12,17 +12,16 @@ import (
 )
 
 // normalizeMode maps user-friendly aliases to the two canonical mode values.
-// Canonical values ("read" / "read & write") are what get written to the mode
-// file and what the bundled Rego policies match on (input.mode == "read"), so
+// Canonical values ("enabled" / "disabled") are what get written to the mode
+// file and what the bundled Rego policies match on (input.mode == "enabled"), so
 // aliases are resolved here at the CLI boundary and never leak into the file or
-// the policy layer. Accepts: ro/r/read and rw/w/"read & write" (and a few
-// punctuation variants), case-insensitive.
+// the policy layer.
 func normalizeMode(v string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "ro", "r", "read":
-		return "read", true
-	case "rw", "w", "read & write", "read&write", "read+write", "readwrite":
-		return "read & write", true
+	case "enabled", "enable", "on", "closed", "close", "lock", "ro", "r", "read", "safe":
+		return "enabled", true
+	case "disabled", "disable", "off", "open", "unlock", "rw", "w", "write", "sudo":
+		return "disabled", true
 	default:
 		return "", false
 	}
@@ -55,7 +54,7 @@ func ModeGet(out io.Writer, opts ModeOptions) int {
 func ModeSet(val string, out io.Writer, opts ModeOptions) int {
 	canon, ok := normalizeMode(val)
 	if !ok {
-		fmt.Fprintf(out, "invalid mode %q (use 'rw' / 'ro', or 'read' / 'read & write')\n", val)
+		fmt.Fprintf(out, "invalid mode %q (use 'enabled'/'disabled'; aliases: on/off, ro/rw, read/write, lock/sudo)\n", val)
 		return 2
 	}
 	_, path, ok := opts.Chain.FirstWritable(opts.Env)

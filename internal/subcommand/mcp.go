@@ -64,11 +64,11 @@ func MCP(stdin io.Reader, stdout, stderr io.Writer) int {
 
 // mcpTools is the TOOLS list. The description strings are the prompt text
 // Claude reads to decide when to invoke these tools — they are CONTRACT, not
-// docs. Copied verbatim from plugin/mcp/guard_mcp.py.
+// docs.
 var mcpTools = []map[string]any{
 	{
 		"name":        "check_mode",
-		"description": "Check the current infrastructure guard mode for this pane. Returns 'read' (destructive infra commands blocked) or 'read & write' (all commands allowed). Check this before attempting any kubectl/terraform/helm/aws mutating command.",
+		"description": "Check whether failsafe is enabled for this pane. Returns `enabled` (destructive infra commands blocked) or `disabled` (all commands allowed). Check this before any kubectl/terraform/helm/aws mutating command.",
 		"inputSchema": map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -77,7 +77,7 @@ var mcpTools = []map[string]any{
 	},
 	{
 		"name":        "toggle_mode",
-		"description": "Toggle the infrastructure guard mode for this pane between 'read' and 'read & write'. IMPORTANT: When you need to run a destructive infra command and the mode is 'read', you MUST call this tool and ask the user to approve the toggle. Do NOT try alternative approaches, workarounds, or suggest the user run the command manually. Stop and request the toggle.",
+		"description": "Toggle failsafe for this pane between `enabled` and `disabled`. IMPORTANT: when you need a destructive infra command and failsafe is `enabled`, you MUST call this tool and ask the user to approve disabling it. Do NOT work around it or suggest the user run the command manually. Stop and request the toggle.",
 		"inputSchema": map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -101,7 +101,7 @@ func handleMCPRequest(req map[string]any) (map[string]any, bool) {
 			"result": map[string]any{
 				"protocolVersion": "2024-11-05",
 				"capabilities":    map[string]any{"tools": map[string]any{}},
-				"serverInfo":      map[string]any{"name": "guard", "version": "1.0.0"},
+				"serverInfo":      map[string]any{"name": "failsafe", "version": "1.0.0"},
 			},
 		}, true
 
@@ -152,9 +152,9 @@ func handleToolCall(id any, name string) map[string]any {
 	case "toggle_mode":
 		old, _, _ := chain.Resolve(env)
 		paneID := resolvePaneID(chain, env)
-		newVal := "read & write"
-		if old == "read & write" {
-			newVal = "read"
+		newVal := "disabled"
+		if old == "disabled" {
+			newVal = "enabled"
 		}
 		_, path, ok := chain.FirstWritable(env)
 		if !ok {
@@ -207,10 +207,10 @@ func mcpToolResult(id any, text string) map[string]any {
 }
 
 func labelFor(modeVal string) string {
-	if modeVal == "read & write" {
-		return "rw"
+	if modeVal == "disabled" {
+		return "disabled"
 	}
-	return "r"
+	return "enabled"
 }
 
 // resolvePaneID picks the pane identifier to surface in tool responses.

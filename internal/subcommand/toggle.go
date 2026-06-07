@@ -17,13 +17,13 @@ type ToggleOptions struct {
 	Env   map[string]string
 }
 
-// Toggle flips the first writable mode source between "read" and "read & write".
+// Toggle flips the first writable mode source between "enabled" and "disabled".
 // Atomic via temp-file + rename.
 func Toggle(out io.Writer, opts ToggleOptions) int {
 	current, _, _ := opts.Chain.Resolve(opts.Env)
-	next := "read & write"
-	if current == "read & write" {
-		next = "read"
+	next := "disabled"
+	if current == "disabled" {
+		next = "enabled"
 	}
 	_, path, ok := opts.Chain.FirstWritable(opts.Env)
 	if !ok {
