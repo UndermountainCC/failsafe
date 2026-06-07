@@ -25,7 +25,7 @@ type Record struct {
 	Time      time.Time
 	Decision  string // "block" | "allow" | "allow_override"
 	Reason    string // block reason or override reason; empty for a plain allow
-	Mode      string // "read" | "read & write"
+	Mode      string // "enabled" | "disabled" (older log entries may carry legacy "read"/"read & write")
 	Tool      string // registry tool name; empty for refuse/parse blocks
 	Verb      string
 	Subverb   string

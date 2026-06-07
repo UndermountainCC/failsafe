@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package mode implements the configurable mode-source chain (spec §3.4).
-// Mode is binary: "read" or "read & write". Sources are tried in the order
-// declared in config; first to return a value wins.
+// Mode is binary: "enabled" or "disabled" (legacy "read" / "read & write" values
+// are migrated by Canonicalize). Sources are tried in the order declared in
+// config; first to return a value wins.
 package mode
 
 import (

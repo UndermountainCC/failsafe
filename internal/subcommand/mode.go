@@ -13,9 +13,10 @@ import (
 
 // normalizeMode maps user-friendly aliases to the two canonical mode values.
 // Canonical values ("enabled" / "disabled") are what get written to the mode
-// file and what the bundled Rego policies match on (input.mode == "enabled"), so
-// aliases are resolved here at the CLI boundary and never leak into the file or
-// the policy layer.
+// file; the fact builder derives the boolean input.failsafe_enabled (which the
+// bundled policies gate on via `not input.failsafe_enabled == false`) and the
+// legacy input.mode string from them. Aliases are resolved here at the CLI
+// boundary and never leak into the file or the policy layer.
 func normalizeMode(v string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "enabled", "enable", "on", "closed", "close", "lock", "ro", "r", "read", "safe":
