@@ -48,8 +48,14 @@ func (b Builder) Build() map[string]any {
 	for k, v := range b.Env {
 		env[k] = v
 	}
+	enabled := b.Mode != "disabled" // fail-safe: anything but explicit disabled is protected
+	legacyMode := "read"
+	if !enabled {
+		legacyMode = "read & write"
+	}
 	fact := map[string]any{
-		"mode":       b.Mode,
+		"failsafe_enabled": enabled,    // new boolean policy interface
+		"mode":             legacyMode, // legacy string, retained for back-compat (input.mode == "read")
 		"tool":       b.Tool,
 		"verb":       b.Parsed.Verb,
 		"subverb":    b.Parsed.Subverb,

@@ -11,6 +11,17 @@ import (
 	"github.com/UndermountainCC/failsafe/internal/tools"
 )
 
+func TestBuildEmitsBooleanAndLegacyMode(t *testing.T) {
+	en := Builder{Mode: "enabled"}.Build()
+	if en["failsafe_enabled"] != true || en["mode"] != "read" {
+		t.Fatalf("enabled: failsafe_enabled=%v mode=%v", en["failsafe_enabled"], en["mode"])
+	}
+	dis := Builder{Mode: "disabled"}.Build()
+	if dis["failsafe_enabled"] != false || dis["mode"] != "read & write" {
+		t.Fatalf("disabled: failsafe_enabled=%v mode=%v", dis["failsafe_enabled"], dis["mode"])
+	}
+}
+
 func TestBuild_Basic(t *testing.T) {
 	parsed := tools.Parsed{
 		Verb:       "apply",
