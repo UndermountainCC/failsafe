@@ -76,7 +76,7 @@ The `#[fg=…]` codes are interpreted by tmux, so a writable pane glows amber an
 `🔓 sudo`, failsafe's `sudo` (see the WezTerm guide's
 [*"sudo mode"*](wezterm.md#make-it-yours-sudo-mode) section for the full meme and the
 auto-revert *sudo timeout* trick, which works here too: append
-`( sleep 600; echo read > "$file" ) &` after the write in `tmux-toggle.sh`).
+`( sleep 600; echo enabled > "$file" ) &` after the write in `tmux-toggle.sh`).
 
 ## Alternative: no helper script
 

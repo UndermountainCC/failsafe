@@ -52,28 +52,28 @@ the doc's own Drop-in snippet via `extract.sh` — your real WezTerm config is u
    watch -n 1 failsafe mode get
    ```
 3. **In the other pane, press `Ctrl+Alt+T`** and watch the `watch` pane flip
-   `read` ⇄ `read & write` live, and the tab badge flip ` r ` ⇄ ` rw `.
+   `enabled` ⇄ `disabled` live, and the tab badge flip ` on ` ⇄ ` off `.
 
 > **Toast not appearing?** That's macOS notification permissions, not failsafe — see
 > *Troubleshooting* at the bottom. The mode-flip in the `watch` pane is the real proof;
 > the toast is cosmetic (the doc marks it "optional").
 
 - [ ] **A1 — keypress fires the toggle + toast.** Press `Ctrl+Alt+T` in a pane.
-  Expect: a toast titled `🔒 failsafe` with body `read  →  read & write`; `failsafe mode get`
-  now prints `read & write` with a `…/pane-mode/<WEZTERM_PANE>` path. Press again → toast
-  `read & write  →  read`, mode back to `read`.
+  Expect: a toast titled `🔒 failsafe` with body `enabled  →  disabled`; `failsafe mode get`
+  now prints `disabled` with a `…/pane-mode/<WEZTERM_PANE>` path. Press again → toast
+  `disabled  →  enabled`, mode back to `enabled`.
 - [ ] **A2 — tab-title badge flips.** With the badge block active, look at the tab title.
-  Expect: ` r ` (dim grey) when read, ` rw ` (amber) when writable; flips when you toggle.
+  Expect: ` on ` (dim grey) when enabled, ` off ` (amber) when disabled; flips when you toggle.
 - [ ] **A3 — per-pane isolation.** Split the window (two panes). Toggle pane 1 to write.
-  Expect: `failsafe mode get` in pane 1 = `read & write`, in pane 2 = `read` (each keyed by
+  Expect: `failsafe mode get` in pane 1 = `disabled`, in pane 2 = `enabled` (each keyed by
   its own `WEZTERM_PANE`).
 - [ ] **A4 — "sudo mode" variant.** Swap in the *"sudo mode"* `toggle_action` and the
   `⚡ sudo` badge. Toggle to write. Expect: toast `🔓 failsafe: sudo mode` /
   `write enabled — with great power…`; badge shows `⚡ sudo`. Toggle off → toast
-  `🔒 failsafe` / `back to read-only. phew.`
+  `🔒 failsafe` / `back to enabled. phew.`
 - [ ] **A5 — sudo timeout auto-revert.** Add the auto-revert snippet but use **`sleep 20`**
-  (not 600) for the test. Toggle to write, then leave it. Expect: after ~20s `failsafe mode
-  get` returns to `read` on its own (badge flips back on the next tab render; no toast fires
+  (not 600) for the test. Toggle to `disabled`, then leave it. Expect: after ~20s `failsafe mode
+  get` returns to `enabled` on its own (badge flips back on the next tab render; no toast fires
   on the auto-revert — it's a background file write). Restore `600` afterwards.
 
 ## B. iTerm2 (Python path) — `docs/toggle/iterm.md` §1–3
@@ -87,7 +87,7 @@ Setup: add the **shell hook** to `~/.zshrc`; open a new tab. Install the Python 
 - [ ] **B0 — script registers cleanly.** After launching the script, Console shows no error
   and `failsafe_toggle` is registered (it appears under Scripts).
 - [ ] **B1 — keypress toggles silently + notifies.** At an empty prompt press `Ctrl+Opt+T`.
-  Expect: macOS notification titled `🔒 failsafe`, body `read  →  read & write`;
+  Expect: macOS notification titled `🔒 failsafe`, body `enabled  →  disabled`;
   `failsafe mode get` flips. Press again → reverse.
 - [ ] **B2 — no text injection.** Start typing a command (don't run it), then press
   `Ctrl+Opt+T` mid-line. Expect: mode flips, and **no text is injected** into your command
@@ -102,7 +102,7 @@ Setup: add the **shell hook** to `~/.zshrc`; open a new tab. Install the Python 
 Setup: bind `Ctrl+Opt+T` → **Send Text** → `failsafe toggle\n`.
 
 - [ ] **C1 — Send Text path.** At an **empty** prompt press `Ctrl+Opt+T`. Expect: the line
-  runs `failsafe toggle`, prints the `read → read & write (…path…)` transition, mode flips.
+  runs `failsafe toggle`, prints the `enabled → disabled (…path…)` transition, mode flips.
 - [ ] **C2 — the documented caveat holds.** Press it while a command is half-typed. Expect:
   it injects `failsafe toggle` mid-command (confirming the doc's warning to use it only at an
   empty prompt). No need to "fix" — just confirm the caveat is real.
@@ -114,10 +114,10 @@ Setup: save `~/.config/failsafe/tmux-toggle.sh` and `tmux-status.sh` (`chmod +x`
 `tmux source-file ~/.tmux.conf`.
 
 - [ ] **D1 — real keypress (what the headless test couldn't do).** In an interactive tmux
-  pane press `Ctrl+Alt+T`. Expect: status message `🔒 failsafe: read → read & write`;
+  pane press `Ctrl+Alt+T`. Expect: status message `🔒 failsafe: enabled → disabled`;
   `failsafe mode get` flips. Press again → reverse.
-- [ ] **D2 — status bar indicator.** Watch the status-right. Expect: `🔒 read` (green) when
-  read, `🔓 sudo` (amber) when writable; flips within ~2s (`status-interval 2`) of a toggle.
+- [ ] **D2 — status bar indicator.** Watch the status-right. Expect: `🔒 on` (green) when
+  enabled, `🔓 sudo` (amber) when disabled; flips within ~2s (`status-interval 2`) of a toggle.
 - [ ] **D3 — per-pane isolation.** Split a window; toggle one pane. Expect: each pane's
   `failsafe mode get` is independent (keyed by `$TMUX_PANE`).
 - [ ] **D4 — nested in WezTerm/iTerm.** Run tmux inside WezTerm (or iTerm). Expect: the
@@ -131,13 +131,13 @@ Setup: copy `examples/claude-statusline.sh` to `~/.config/failsafe/`, `chmod +x`
 `~/.claude/settings.json` `statusLine.command` at it, (re)start Claude Code.
 
 - [ ] **E1 — status line renders.** Expect: the bottom line reads
-  `failsafe 🔒 read · ~/<cwd> · <Model>`.
-- [ ] **E2 — end-to-end flip (the money shot).** From the same pane, toggle to write (any
+  `failsafe 🔒 enabled · ~/<cwd> · <Model>`.
+- [ ] **E2 — end-to-end flip (the money shot).** From the same pane, toggle to disabled (any
   binding above, or `failsafe toggle`). Expect: the Claude Code status line flips to
-  `failsafe 🔓 write · …` on its next render. This is the full chain: terminal toggle →
+  `failsafe 🔓 disabled · …` on its next render. This is the full chain: terminal toggle →
   guard mode file → Claude Code status line.
 - [ ] **E3 — degrade without jq.** Temporarily rename/hide `jq`. Expect: the line still shows
-  `failsafe 🔒 read` / `🔓 write` (just without the `· cwd · model` suffix).
+  `failsafe 🔒 enabled` / `🔓 disabled` (just without the `· cwd · model` suffix).
 
 ---
 

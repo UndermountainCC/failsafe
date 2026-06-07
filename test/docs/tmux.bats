@@ -14,15 +14,15 @@ teardown() {
   teardown_sandbox
 }
 
-@test "toggle script flips read <-> read & write" {
+@test "toggle script flips enabled <-> disabled" {
   # The toggle script ends with `tmux display-message`, which requires a tmux
   # server — run it via run-shell so it has a proper tmux context (just as it
   # would be invoked from a real key binding).
   tmux -L "$SOCK" new-session -d -s s -x 80 -y 24
   tmux -L "$SOCK" run-shell "$TOGGLE '%5'"
-  [ "$(read_mode_file "%5")" = "read & write" ]
+  [ "$(read_mode_file "%5")" = "disabled" ]
   tmux -L "$SOCK" run-shell "$TOGGLE '%5'"
-  [ "$(read_mode_file "%5")" = "read" ]
+  [ "$(read_mode_file "%5")" = "enabled" ]
 }
 
 @test "#{pane_id} equals \$TMUX_PANE inside a real session" {
@@ -51,19 +51,19 @@ teardown() {
   [[ "$output" == *"C-M-t"* || "$output" == *"M-C-t"* ]]
 }
 
-@test "status script colors writable amber / read green" {
+@test "status script colors disabled amber / enabled green" {
   local STAT="$TEST_HOME/tmux-status.sh"
   extract_block "$TMUX_DOC" bash 1 "Status indicator" > "$STAT"; chmod +x "$STAT"
-  write_mode_file "%5" "read & write"
+  write_mode_file "%5" "disabled"
   run "$STAT" "%5"
   [[ "$output" == *"🔓 sudo"* ]]; [[ "$output" == *"fg=yellow"* ]]
-  write_mode_file "%5" "read"
+  write_mode_file "%5" "enabled"
   run "$STAT" "%5"
-  [[ "$output" == *"🔒 read"* ]]; [[ "$output" == *"fg=green"* ]]
+  [[ "$output" == *"🔒 on"* ]]; [[ "$output" == *"fg=green"* ]]
 }
 
 @test "no-script alternative toggles only the target pane" {
   WEZTERM_PANE= ITERM_SESSION_ID= TMUX_PANE="%5" failsafe toggle
-  [ "$(read_mode_file "%5")" = "read & write" ]
+  [ "$(read_mode_file "%5")" = "disabled" ]
   [ ! -f "$HOME/.claude/pane-mode/%other" ]
 }

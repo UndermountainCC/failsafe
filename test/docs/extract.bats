@@ -14,7 +14,7 @@ EX() { bash "$DOCS_REPO_ROOT/test/docs/lib/extract.sh" "$@"; }
   run EX "$DOCS_REPO_ROOT/docs/toggle/tmux.md" bash 1 "Status indicator"
   [ "$status" -eq 0 ]
   [[ "$output" == *"🔓 sudo"* ]]
-  [[ "$output" == *"🔒 read"* ]]
+  [[ "$output" == *"🔒 on"* ]]
 }
 
 @test "extract.sh without anchor counts globally" {

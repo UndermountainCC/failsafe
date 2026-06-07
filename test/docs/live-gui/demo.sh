@@ -11,14 +11,13 @@ note() { printf '  \033[2m%s\033[0m\n' "$1"; }                      # dim captio
 key()  { printf '\n  \033[1;33m⌨  Press %s now (watch the tab badge), then Enter\033[0m ' "$1"; read -r; }
 pause(){ printf '  \033[2m(Enter to continue)\033[0m'; read -r; }
 
-# Friendly status, derived from the real `failsafe mode get`. The dim (mode: …) is
-# the underlying value — it goes away once the engine speaks enable/disable natively.
+# Friendly status, derived from the real `failsafe mode get`.
 status() {
   local m; m="$(failsafe mode get | cut -f1)"
-  if [ "$m" = "read & write" ]; then
-    printf '  \033[1;33m🔓 failsafe DISABLED — the agent can write\033[0m  \033[2m(mode: %s)\033[0m\n' "$m"
+  if [ "$m" = "disabled" ]; then
+    printf '  \033[1;33m🔓 failsafe DISABLED — the agent can write\033[0m  \033[2m(%s)\033[0m\n' "$m"
   else
-    printf '  \033[1;32m🔒 failsafe ENABLED — writes blocked\033[0m  \033[2m(mode: %s)\033[0m\n' "$m"
+    printf '  \033[1;32m🔒 failsafe ENABLED — writes blocked\033[0m  \033[2m(%s)\033[0m\n' "$m"
   fi
 }
 

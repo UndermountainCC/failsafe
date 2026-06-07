@@ -15,7 +15,7 @@ teardown() { teardown_sandbox; }
   [ "$(printf '%s' "$b64" | base64 -d)" = "$sid" ]
 }
 
-@test "doc python read_mode returns canonical and defaults to read" {
+@test "doc python read_mode returns canonical and defaults to enabled" {
   [ -n "$PYTHON_BIN" ] || skip "no python"
   extract_block "$IT" python 1 > "$TEST_HOME/it.py"
   run "$PYTHON_BIN" - "$TEST_HOME/it.py" <<'PY'
@@ -28,9 +28,9 @@ ns = {}
 exec(compile(ast.Module([fn], []), "read_mode", "exec"), ns)
 read_mode = ns["read_mode"]
 d = tempfile.mkdtemp()
-assert read_mode(os.path.join(d, "missing")) == "read", "missing file -> read"
-p = os.path.join(d, "m"); open(p, "w").write("read & write\n")
-assert read_mode(p) == "read & write", "canonical preserved"
+assert read_mode(os.path.join(d, "missing")) == "enabled", "missing file -> enabled"
+p = os.path.join(d, "m"); open(p, "w").write("disabled\n")
+assert read_mode(p) == "disabled", "canonical preserved"
 print("ok")
 PY
   [ "$status" -eq 0 ]
@@ -56,5 +56,5 @@ PY
 @test "no-python alternative: failsafe toggle flips the session file" {
   local sid="w1t6p0:GUID-XYZ"
   ITERM_SESSION_ID="$sid" failsafe toggle
-  [ "$(read_mode_file "$sid")" = "read & write" ]
+  [ "$(read_mode_file "$sid")" = "disabled" ]
 }

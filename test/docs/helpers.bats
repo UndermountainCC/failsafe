@@ -10,8 +10,8 @@ teardown() { teardown_sandbox; }
 }
 
 @test "mode-file helpers round-trip" {
-  write_mode_file "%5" "read & write"
-  [ "$(read_mode_file "%5")" = "read & write" ]
+  write_mode_file "%5" "disabled"
+  [ "$(read_mode_file "%5")" = "disabled" ]
 }
 
 @test "need skips when a tool is absent" {

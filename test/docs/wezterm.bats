@@ -32,24 +32,25 @@ teardown() { teardown_sandbox; }
   local out
   out="$(STUB="$STUB_DIR/wezterm.lua" SNIPPET="$TEST_HOME/snip.lua" \
          "$LUA_BIN" "$STUB_DIR/wezterm_driver.lua" "%wz")"
-  [ "$out" = "read & write" ]
-  [ "$(read_mode_file "%wz")" = "read & write" ]
+  # Snippet default is "enabled"; one toggle flips it to "disabled".
+  [ "$out" = "disabled" ]
+  [ "$(read_mode_file "%wz")" = "disabled" ]
   WEZTERM_PANE="%wz" run failsafe mode get
-  [[ "$output" == "read & write"* ]]
+  [[ "$output" == "disabled"* ]]
 }
 
-@test "badge maps writable -> sudo, read -> r" {
-  run grep -F 'local badge = (mode == "read & write") and " ⚡ sudo " or " r "' "$WZ"
+@test "badge maps disabled -> off, enabled -> on" {
+  run grep -F 'local badge = (mode == "disabled") and " off " or " on "' "$WZ"
   [ "$status" -eq 0 ]
 }
 
-@test "sudo-timeout mechanism reverts to read" {
+@test "sudo-timeout mechanism reverts to enabled" {
   local block
   block="$(extract_block "$WZ" lua 3 'Make it yours: "sudo mode"')"
   [[ "$block" == *"sleep 600"* ]]
-  [[ "$block" == *"echo read"* ]]
-  local f="$HOME/.claude/pane-mode/%wz"; printf 'read & write' > "$f"
-  ( sleep 1; echo read > "$f" ) &
+  [[ "$block" == *"echo enabled"* ]]
+  local f="$HOME/.claude/pane-mode/%wz"; printf 'disabled' > "$f"
+  ( sleep 1; printf 'enabled' > "$f" ) &
   sleep 2.5   # generous margin over the 1s revert so loaded CI runners don't flake
-  [ "$(read_mode_file "%wz")" = "read" ]
+  [ "$(read_mode_file "%wz")" = "enabled" ]
 }

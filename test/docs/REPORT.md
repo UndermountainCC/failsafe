@@ -16,28 +16,28 @@ binary by running the **literal fenced code blocks extracted from the docs**.
 | Doc | Claim | Method | Result |
 |---|---|---|---|
 | cross-cutting | chain order WEZTERM→TMUX→ITERM | black-box `mode get` w/ competing files | **PASS** |
-| cross-cutting | missing file ⇒ `read` | black-box | **PASS** |
-| cross-cutting | rego matches `"read"` only | grep `internal/embed/policies/*.rego` | **PASS** |
-| cross-cutting | rw/ro aliases ⇒ canonical bytes | `mode set` + read back | **PASS** |
-| cross-cutting | `mode get` tab-delimited (`cut -f1`) | black-box | **PASS** |
-| statusline | `🔒 read` / `🔓 write` glyphs | pipe JSON to `examples/claude-statusline.sh` | **PASS** |
+| cross-cutting | missing file ⇒ `enabled` | black-box | **PASS** |
+| cross-cutting | rego gates on boolean `failsafe_enabled` (not `input.mode` string) | grep `internal/embed/policies/*.rego` | **PASS** |
+| cross-cutting | on/off aliases ⇒ `enabled`/`disabled` canonical bytes | `mode set` + read back | **PASS** |
+| cross-cutting | `mode get` tab-delimited (`cut -f1`) returns `enabled`/`disabled` | black-box | **PASS** |
+| statusline | `🔒 enabled` / `🔓 disabled` glyphs | pipe JSON to `examples/claude-statusline.sh` | **PASS** |
 | statusline | jq adds `~`-cwd + model | with jq | **PASS** |
 | statusline | degrades w/o jq (guard only, no cwd) | nojq PATH shim | **PASS** |
 | statusline | single-line output | byte check | **PASS** |
-| tmux | toggle script flips read↔read&write | run extracted script (via `run-shell`) | **PASS** |
+| tmux | toggle script flips enabled↔disabled | run extracted script (via `run-shell`) | **PASS** |
 | tmux | `#{pane_id}` == `$TMUX_PANE` | live headless tmux session | **PASS** |
 | tmux | `C-M-t` bound to toggle w/ `#{pane_id}` | `list-keys -T root` (registration) | **PASS** |
-| tmux | status script colors (sudo/amber, read/green) | run extracted script | **PASS** |
+| tmux | status script colors (sudo/amber, on/green) | run extracted script | **PASS** |
 | tmux | no-script `failsafe toggle` toggles target pane | black-box | **PASS** |
 | wezterm | snippet is valid lua | `lua` loadfile | **PASS** |
 | wezterm | snippet has no luacheck errors | luacheck (runs in CI; skipped local, see Notes) | **PASS** (CI) |
 | wezterm | snippet's own `toggle_mode` writes canonical; failsafe agrees | lua stub + driver fires `keys[1].action` | **PASS** |
-| wezterm | badge maps rw→`⚡ sudo`, read→`r` | exact-grep doc line | **PASS** |
+| wezterm | badge maps disabled→`off`, enabled→`on` | exact-grep doc line | **PASS** |
 | wezterm | sudo-timeout auto-revert mechanism | text-ties to doc + ported 1s revert | **PASS** |
 | wezterm | toast / `format-tab-title` rendering | — | **STATIC** (GUI-only) |
 | wezterm | config loads + `Ctrl+Alt+t` registered | `wezterm show-keys` (live, real WezTerm) | **PASS (LIVE)** |
 | iterm | shell hook OSC-1337 base64 roundtrip | run extracted hook + `base64 -d` | **PASS** |
-| iterm | doc's own `read_mode` canonical/default | exec the AST `FunctionDef` | **PASS** |
+| iterm | doc's own `read_mode` canonical/default (`enabled`) | exec the AST `FunctionDef` | **PASS** |
 | iterm | script `py_compile`s + `import iterm2` | python | **PASS** |
 | iterm | script passes pyflakes | `python3 -m pyflakes` | **PASS** (after fix below) |
 | iterm | no-python `failsafe toggle` flips session file | black-box | **PASS** |
@@ -50,6 +50,11 @@ binary by running the **literal fenced code blocks extracted from the docs**.
   `app = await iterm2.async_get_app(connection)` but registered its RPC off `connection`
   and never used `app`. Dead API call — **removed** (commit `083ead8`). The harness's
   pyflakes check now guards against regression.
+- **`docs/toggle/tmux.md` — sudo-timeout prose said `echo read` (FIXED, Phase 7).** The
+  prose note at the end of the Status indicator section referenced
+  `( sleep 600; echo read > "$file" ) &` as the auto-revert snippet, but the renamed
+  canonical value is `enabled`. Updated to `echo enabled` (consistent with wezterm.md which
+  already had the correct `echo enabled` in its lua code block).
 
 ## Benign findings (no change made)
 
