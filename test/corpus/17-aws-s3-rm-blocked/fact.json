@@ -1,1 +1,1 @@
-{"mode":"read","tool":"aws","verb":"s3","subverb":"rm","positional":["s3://bucket/key"]}
+{"mode":"read","failsafe_enabled":true,"tool":"aws","verb":"s3","subverb":"rm","positional":["s3://bucket/key"]}

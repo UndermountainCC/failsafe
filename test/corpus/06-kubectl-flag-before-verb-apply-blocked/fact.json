@@ -1,1 +1,1 @@
-{"mode":"read","tool":"kubectl","verb":"apply","flags":{"context":"arn:aws:eks:us-west-2:123456789012:cluster/dev"},"positional":["-f","x.yaml"]}
+{"mode":"read","failsafe_enabled":true,"tool":"kubectl","verb":"apply","flags":{"context":"arn:aws:eks:us-west-2:123456789012:cluster/dev"},"positional":["-f","x.yaml"]}

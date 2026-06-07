@@ -1,1 +1,1 @@
-{"mode":"read","tool":"helm","verb":"list","flags":{"namespace":"kube-system"}}
+{"mode":"read","failsafe_enabled":true,"tool":"helm","verb":"list","flags":{"namespace":"kube-system"}}

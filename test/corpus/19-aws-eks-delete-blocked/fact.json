@@ -1,1 +1,1 @@
-{"mode":"read","tool":"aws","verb":"eks","subverb":"delete-cluster","positional":["--name","foo"]}
+{"mode":"read","failsafe_enabled":true,"tool":"aws","verb":"eks","subverb":"delete-cluster","positional":["--name","foo"]}

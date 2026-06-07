@@ -1,1 +1,1 @@
-{"mode":"read","tool":"helm","verb":"install","positional":["foo","bar"]}
+{"mode":"read","failsafe_enabled":true,"tool":"helm","verb":"install","positional":["foo","bar"]}

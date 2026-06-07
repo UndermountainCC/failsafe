@@ -1,1 +1,1 @@
-{"mode":"read","tool":"kubectl","verb":"get","positional":["pods"]}
+{"mode":"read","failsafe_enabled":true,"tool":"kubectl","verb":"get","positional":["pods"]}

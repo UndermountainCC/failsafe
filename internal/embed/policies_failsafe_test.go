@@ -177,3 +177,78 @@ func TestFailsafeGate_ReadVerb_AlwaysAllowed(t *testing.T) {
 		}
 	}
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Back-compat: legacy package guard.user policy + input.mode still works
+//
+// A user who wrote their own policy using the OLD package namespace
+// (guard.user) and OLD field (input.mode == "read") must still have it
+// respected alongside the bundled failsafe.bundled.* policies. This test
+// compiles a hand-written legacy guard.user module, evaluates it against a
+// fact that carries BOTH input.mode and input.failsafe_enabled, and asserts
+// the legacy rule fires — proving the dual-namespace design is intact and
+// old user policies don't silently break.
+//
+// The legacy policy blocks `kubectl get` when mode=="read". The bundled
+// kubectl.rego would ALLOW kubectl get (it is in read_verbs), so any block
+// here comes purely from the legacy user module — cleanly isolating the
+// back-compat path.
+
+const legacyGuardUserPolicy = `
+package guard.user
+
+import future.keywords.if
+import future.keywords.contains
+
+# Legacy rule: blocks kubectl get in read mode.
+# Written before the failsafe_enabled field existed.
+block contains {"reason": "legacy"} if {
+    input.mode == "read"
+    input.tool == "kubectl"
+    input.verb == "get"
+}
+`
+
+func TestLegacyGuardUserPolicy_BlocksWithInputMode(t *testing.T) {
+	ctx := context.Background()
+
+	// Load the legacy user module alongside the full bundled policy set so
+	// the OPA compiler sees both namespaces simultaneously.
+	mods := bundledModuleMap(t)
+	mods["legacy_guard_user.rego"] = legacyGuardUserPolicy
+
+	opts := []func(*rego.Rego){
+		rego.Query("data.guard.user.block"),
+	}
+	for name, body := range mods {
+		opts = append(opts, rego.Module(name, body))
+	}
+	pq, err := rego.New(opts...).PrepareForEval(ctx)
+	if err != nil {
+		t.Fatalf("PrepareForEval: %v", err)
+	}
+
+	// Fact carries BOTH the new field (failsafe_enabled:true) and the legacy
+	// field (mode:"read"). The legacy rule gates only on input.mode.
+	fact := map[string]any{
+		"mode":             "read",
+		"failsafe_enabled": true,
+		"tool":             "kubectl",
+		"verb":             "get",
+	}
+	reasons := evalBlock(t, pq, fact)
+	if len(reasons) == 0 {
+		t.Fatal("BACK-COMPAT VIOLATION: legacy guard.user policy with input.mode==\"read\" did not block — legacy user policies must still be evaluated")
+	}
+	found := false
+	for _, r := range reasons {
+		if r == "legacy" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected reason \"legacy\" from legacy guard.user policy, got: %v", reasons)
+	}
+	t.Logf("back-compat confirmed: legacy guard.user blocked with reason: %v", reasons)
+}

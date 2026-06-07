@@ -1,1 +1,1 @@
-{"mode":"read","tool":"git","verb":"status"}
+{"mode":"read","failsafe_enabled":true,"tool":"git","verb":"status"}

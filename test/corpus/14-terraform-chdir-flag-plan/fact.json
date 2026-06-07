@@ -1,1 +1,1 @@
-{"mode":"read","tool":"terraform","verb":"plan","flags":{"chdir":"modules/foo"}}
+{"mode":"read","failsafe_enabled":true,"tool":"terraform","verb":"plan","flags":{"chdir":"modules/foo"}}

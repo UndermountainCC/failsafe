@@ -1,1 +1,1 @@
-{"mode":"read","tool":"helm","verb":"list"}
+{"mode":"read","failsafe_enabled":true,"tool":"helm","verb":"list"}

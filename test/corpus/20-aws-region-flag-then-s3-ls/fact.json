@@ -1,1 +1,1 @@
-{"mode":"read","tool":"aws","verb":"s3","subverb":"ls","flags":{"region":"us-west-2"}}
+{"mode":"read","failsafe_enabled":true,"tool":"aws","verb":"s3","subverb":"ls","flags":{"region":"us-west-2"}}
