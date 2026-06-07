@@ -30,8 +30,8 @@ func TestChain_FirstResolves(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if val != "read & write" {
-		t.Errorf("val = %q, want 'read & write'", val)
+	if val != "disabled" {
+		t.Errorf("val = %q, want 'disabled' (canonicalized from 'read & write')", val)
 	}
 	if src == nil {
 		t.Error("src should be non-nil for resolved value")
@@ -50,8 +50,8 @@ func TestChain_AllSkipFallsToDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if val != "read" {
-		t.Errorf("val = %q, want default 'read'", val)
+	if val != "enabled" {
+		t.Errorf("val = %q, want 'enabled' (canonicalized from legacy default 'read')", val)
 	}
 	if src != nil {
 		t.Error("src should be nil when default is used")
@@ -83,8 +83,8 @@ func TestChain_PerTTYBeatsGlobal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if val != "read & write" {
-		t.Errorf("val = %q, want per-tty value 'read & write'", val)
+	if val != "disabled" {
+		t.Errorf("val = %q, want per-tty value 'disabled' (canonicalized from 'read & write')", val)
 	}
 }
 
@@ -132,6 +132,24 @@ func TestChain_NoTTYFallsToGlobalWritable(t *testing.T) {
 	}
 	if want := filepath.Join(dir, ".config", "failsafe", "mode"); path != want {
 		t.Errorf("writable target = %q, want global %q", path, want)
+	}
+}
+
+func TestResolveMigratesLegacyAndFailsSafe(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"enabled", "enabled"},
+		{"disabled", "disabled"},
+		{"read", "enabled"},
+		{"read & write", "disabled"},
+		{"", "enabled"},
+		{"garbage", "enabled"},
+	}
+	for _, c := range cases {
+		ch := Chain{Sources: []Source{EnvSource{Name: "M"}}, Default: "enabled"}
+		got, _, err := ch.Resolve(map[string]string{"M": c.in})
+		if err != nil || got != c.want {
+			t.Fatalf("Resolve(%q) = %q,%v; want %q", c.in, got, err, c.want)
+		}
 	}
 }
 

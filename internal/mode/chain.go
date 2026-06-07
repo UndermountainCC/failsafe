@@ -19,10 +19,10 @@ func (c Chain) Resolve(env map[string]string) (string, Source, error) {
 			return "", nil, err
 		}
 		if ok {
-			return v, s, nil
+			return Canonicalize(v), s, nil
 		}
 	}
-	return c.Default, nil, nil
+	return Canonicalize(c.Default), nil, nil
 }
 
 // FirstWritable returns the first source that is Writable() and whose Path()

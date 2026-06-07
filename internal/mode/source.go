@@ -14,6 +14,18 @@ import (
 	"syscall"
 )
 
+// Canonicalize maps any resolved mode string to a canonical value, migrating the
+// legacy read/read&write vocabulary and FAILING SAFE: any empty, unknown, or
+// garbled value resolves to "enabled" (protected). A guard must never fail open.
+func Canonicalize(v string) string {
+	switch strings.TrimSpace(v) {
+	case "disabled", "read & write":
+		return "disabled"
+	default: // "enabled", "read", "", and anything unrecognized
+		return "enabled"
+	}
+}
+
 // Source resolves to a mode value from some authority (env var, file, etc.).
 type Source interface {
 	// Resolve returns (value, true, nil) if the source has a value to contribute,
