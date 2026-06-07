@@ -12,3 +12,6 @@ docs/superpowers/
 
 # mkdocs build output
 /site/
+
+# harness worktrees + session state
+.claude/
