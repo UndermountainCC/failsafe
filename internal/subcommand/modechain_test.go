@@ -36,6 +36,14 @@ func TestDefaultModeChain_PerTTYBeforeGlobal(t *testing.T) {
 	}
 }
 
+func TestDefaultModeChainDefaultsToEnabled(t *testing.T) {
+	ch := DefaultModeChain()
+	got, src, _ := ch.Resolve(map[string]string{"HOME": t.TempDir()})
+	if got != "enabled" || src != nil {
+		t.Fatalf("default resolve = %q (src %v); want enabled/nil", got, src)
+	}
+}
+
 // TestResolvePaneID_SkipsGlobalFallback guards the mcp pane-id display: the
 // global config file resolves in any shell with HOME set, but its trailing
 // component ("mode") must never be surfaced as a pane identifier.

@@ -273,7 +273,7 @@ func defaultModeChain() *mode.Chain {
 			// Global last-resort fallback (always writable while HOME is set).
 			mode.FileSource{Pattern: "${HOME}/.config/failsafe/mode"},
 		},
-		Default: "read",
+		Default: "enabled",
 	}
 }
 
