@@ -110,6 +110,7 @@ func Validate(path string, out io.Writer, opts ValidateOptions) int {
 // knownFactFields enumerates the top-level keys of the Rego input fact
 // (spec §5.1). Updated whenever the fact schema grows.
 var knownFactFields = map[string]bool{
+	"failsafe_enabled": true,
 	"mode": true, "tool": true, "verb": true, "subverb": true,
 	"flags": true, "positional": true, "env": true,
 	"cwd": true, "now": true, "session": true, "raw": true,
