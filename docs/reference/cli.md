@@ -43,7 +43,7 @@ The hot path. Reads one Claude Code `PreToolUse` JSON envelope from **stdin**, e
 **Stdout on block:**
 
 ```json
-{"decision":"block","reason":"kubectl delete blocked in read mode"}
+{"decision":"block","reason":"kubectl delete blocked while failsafe is enabled"}
 ```
 
 **Stdout on allow (plain):** empty. Claude Code interprets exit 0 with no stdout as allow.
@@ -90,7 +90,7 @@ Exposes two MCP tools:
 
 | Tool | Description |
 |------|-------------|
-| `check_mode` | Returns the current mode (`read` or `read & write`) and pane ID. No arguments. |
+| `check_mode` | Returns the current mode (`enabled` or `disabled`) and pane ID. No arguments. |
 | `toggle_mode` | Flips the mode atomically. No arguments. Returns `{old, new, pane_id}`. |
 
 Both tools use the same mode chain as `hook` (env → pane-mode files → TTY file → global file).
@@ -110,12 +110,12 @@ Both tools use the same mode chain as `hook` (env → pane-mode files → TTY fi
 failsafe toggle
 ```
 
-Flips the first writable mode source between `read` and `read & write`. Writes atomically (temp-file + rename).
+Flips the first writable mode source between `enabled` and `disabled`. Writes atomically (temp-file + rename).
 
 Prints `<old> → <new> (<path>)` on success, e.g.:
 
 ```
-read → read & write (/home/user/.claude/pane-mode/12345)
+enabled → disabled (/home/user/.claude/pane-mode/12345)
 ```
 
 **What it reads/writes:** the first writable source in the mode chain whose path resolves in the current environment. See [Modes](modes.md) for the chain order.
@@ -138,9 +138,9 @@ failsafe mode get
 Prints the effective mode and its source, e.g.:
 
 ```
-read & write    (file: /home/user/.claude/pane-mode/12345)
-read            (default; no source resolved)
-read            (env)
+disabled    (file: /home/user/.claude/pane-mode/12345)
+enabled     (default; no source resolved)
+enabled     (env)
 ```
 
 **Exit codes:**
@@ -162,8 +162,8 @@ Sets the mode by writing to the first writable source. Accepts aliases:
 
 | Alias | Canonical value written |
 |-------|------------------------|
-| `ro`, `r`, `read` | `read` |
-| `rw`, `w`, `read & write`, `read&write`, `read+write`, `readwrite` | `read & write` |
+| `enabled`, `enable`, `on`, `closed`, `close`, `lock`, `ro`, `r`, `read`, `safe` | `enabled` |
+| `disabled`, `disable`, `off`, `open`, `unlock`, `rw`, `w`, `write`, `sudo` | `disabled` |
 
 Matching is case-insensitive.
 
@@ -197,13 +197,13 @@ Positional:    ns payments
 Flags:
   context         = arn:aws:eks:us-east-1:…:cluster/prod
 Effective cwd: /home/user/project
-Mode:          read
+Mode:          enabled
 Policy chain (3 modules at this cwd):
   [bundled] bundled/kubectl.rego
   [user] /home/user/.config/failsafe/policy.rego
   [repo] /home/user/project/.failsafe.rego [trusted]
 Decision: BLOCK
-Reason  : kubectl delete blocked in read mode
+Reason  : kubectl delete blocked while failsafe is enabled
 ```
 
 **Exit codes:**
@@ -329,8 +329,8 @@ failsafe validate [--strict] <path>
 Lints a `.rego` file for use as a failsafe policy. Checks in order:
 
 1. **Parse**: valid Rego syntax.
-2. **Package**: `package guard.repo` for `.failsafe.rego`, `package guard.user` for files under `~/.config/failsafe/`.
-3. **Rule names**: `allow_override` is reserved for `guard.repo`; bundled and user layers may only declare `block`.
+2. **Package**: `package failsafe.repo` for `.failsafe.rego`, `package failsafe.user` for files under `~/.config/failsafe/`. (Legacy `guard.repo` / `guard.user` are still accepted — dual-namespace.)
+3. **Rule names**: `allow_override` is reserved for `failsafe.repo`; bundled and user layers may only declare `block`.
 4. **Rule shape**: every `block` and `allow_override` rule must produce `{"reason": <string>}`.
 5. **Fact-field references**: `input.<X>` references are checked against the known field list; unknowns emit a warning.
 

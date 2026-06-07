@@ -1,6 +1,6 @@
 # Example: per-cluster kubectl policy. Place in ~/.config/failsafe/policy.rego
-# (after dropping `package guard.repo` for `package guard.user`).
-package guard.user
+# (after dropping `package failsafe.repo` for `package failsafe.user`).
+package failsafe.user
 
 import future.keywords.if
 import future.keywords.in

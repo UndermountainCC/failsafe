@@ -1,5 +1,5 @@
 # Example: protect specific repos. Place at <repo>/.failsafe.rego.
-package guard.repo
+package failsafe.repo
 
 import future.keywords.if
 import future.keywords.in

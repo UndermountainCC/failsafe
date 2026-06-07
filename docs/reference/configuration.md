@@ -17,8 +17,8 @@ All paths under `~/.config/failsafe/` are created by failsafe as needed (mode 07
 
 | Path | Layer | Description |
 |------|-------|-------------|
-| `~/.config/failsafe/policy.rego` | User | User-level Rego policy. Must declare `package guard.user`. May contain `block` rules only; `allow_override` is reserved for the repo layer. Loaded on every hook call; missing file is silently skipped. |
-| `.failsafe.rego` | Repo | Repository-level Rego policy, placed at the repo root. Must declare `package guard.repo`. May contain both `block` and `allow_override` rules. Ignored until the repo is trusted via `failsafe trust`. Discovered by walking up from the effective `cwd` toward `$HOME` (exclusive). Multiple `.failsafe.rego` files in nested directories are all loaded. |
+| `~/.config/failsafe/policy.rego` | User | User-level Rego policy. Must declare `package failsafe.user` (legacy `package guard.user` still accepted). May contain `block` rules only; `allow_override` is reserved for the repo layer. Loaded on every hook call; missing file is silently skipped. |
+| `.failsafe.rego` | Repo | Repository-level Rego policy, placed at the repo root. Must declare `package failsafe.repo` (legacy `package guard.repo` still accepted). May contain both `block` and `allow_override` rules. Ignored until the repo is trusted via `failsafe trust`. Discovered by walking up from the effective `cwd` toward `$HOME` (exclusive). Multiple `.failsafe.rego` files in nested directories are all loaded. |
 
 ### Tool definitions
 
@@ -41,7 +41,7 @@ See `examples/tools/` in the repo for YAML tool templates.
 | `ts` | string | UTC timestamp, RFC3339. |
 | `decision` | string | `"block"`, `"allow"`, or `"allow_override"`. |
 | `reason` | string | Block reason or override reason. Omitted for plain allows. |
-| `mode` | string | Mode at decision time: `"read"` or `"read & write"`. |
+| `mode` | string | Mode at decision time: `"enabled"` or `"disabled"`. |
 | `tool` | string | Registry tool name. Omitted for refuse/parse blocks. |
 | `verb` | string | Parsed verb. Omitted when empty or not applicable. |
 | `subverb` | string | Parsed subverb. Omitted when empty. |
@@ -67,7 +67,7 @@ See `examples/tools/` in the repo for YAML tool templates.
 
 | Path | Description |
 |------|-------------|
-| `~/.claude/pane-mode/<WEZTERM_PANE>` | Per-pane mode file for WezTerm. Created/updated by `failsafe toggle` / `mode set` when `WEZTERM_PANE` is set. Content: `read` or `read & write`. |
+| `~/.claude/pane-mode/<WEZTERM_PANE>` | Per-pane mode file for WezTerm. Created/updated by `failsafe toggle` / `mode set` when `WEZTERM_PANE` is set. Content: `enabled` or `disabled`. |
 | `~/.claude/pane-mode/<TMUX_PANE>` | Per-pane mode file for tmux. |
 | `~/.claude/pane-mode/<ITERM_SESSION_ID>` | Per-pane mode file for iTerm2. |
 | `~/.claude/pane-mode/<KITTY_WINDOW_ID>` | Per-pane mode file for Kitty. |
@@ -75,7 +75,7 @@ See `examples/tools/` in the repo for YAML tool templates.
 | `~/.config/failsafe/tty-<device_id>` | Per-controlling-terminal mode file. Created when no multiplexer env var is set. The `<device_id>` is the decimal `Rdev` of `/dev/tty`. |
 | `~/.config/failsafe/mode` | Global fallback mode file. Read when no higher-priority source resolves. |
 
-All mode files contain a single line (`read` or `read & write`). For the full resolution order, see [Modes](modes.md).
+All mode files contain a single line (`enabled` or `disabled`). For the full resolution order, see [Modes](modes.md).
 
 ---
 
@@ -83,7 +83,7 @@ All mode files contain a single line (`read` or `read & write`). For the full re
 
 | Variable | Default | Effect |
 |----------|---------|--------|
-| `FAILSAFE_MODE` | (unset) | When set to `read` or `read & write`, overrides all file-based mode sources. Highest priority in the chain. Not affected by `failsafe toggle` or `mode set`. |
+| `FAILSAFE_MODE` | (unset) | When set to `enabled` or `disabled`, overrides all file-based mode sources. Highest priority in the chain. Not affected by `failsafe toggle` or `mode set`. |
 | `FAILSAFE_LOG` | (unset) | Controls where decisions are logged. Set to `off` to disable logging entirely. Set to an absolute path to log to that file instead of the default `~/.config/failsafe/decisions.jsonl`. |
 | `HOME` | (OS-provided) | Used to resolve all `~/.config/failsafe/` and `~/.claude/` paths. Set explicitly in test environments. |
 | `WEZTERM_PANE` | (unset) | Pane identifier for WezTerm. Enables priority-2 mode source `~/.claude/pane-mode/${WEZTERM_PANE}`. |

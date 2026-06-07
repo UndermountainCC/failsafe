@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 failsafe resolves the current session's mode from `~/.claude/pane-mode/$ITERM_SESSION_ID`
 (see the mode-source chain in the README). The goal: bind a key (say `Ctrl+Opt+T`) that
-flips the **focused** session between `read` and `read & write` without injecting text
+flips the **focused** session between `enabled` and `disabled` without injecting text
 into your shell.
 
 > **The one catch.** iTerm2's Python API gives a script the session's *GUID*
@@ -42,7 +42,7 @@ Save as `~/Library/Application Support/iTerm2/Scripts/AutoLaunch/failsafe_toggle
 ```python
 #!/usr/bin/env python3
 # failsafe per-session mode toggle for iTerm2.
-# Flips ~/.claude/pane-mode/$ITERM_SESSION_ID between "read" and "read & write".
+# Flips ~/.claude/pane-mode/$ITERM_SESSION_ID between "enabled" and "disabled".
 import base64
 import os
 import iterm2
@@ -52,9 +52,9 @@ MODE_DIR = os.path.expanduser("~/.claude/pane-mode")
 def read_mode(path):
     try:
         with open(path) as f:
-            return (f.read().strip() or "read")
+            return (f.read().strip() or "enabled")
     except FileNotFoundError:
-        return "read"            # missing file = safe default
+        return "enabled"            # missing file = safe default
 
 async def main(connection):
     # `sid_b64` is the base64 of $ITERM_SESSION_ID, published by the shell hook in step 1.
@@ -68,7 +68,7 @@ async def main(connection):
         path = os.path.join(MODE_DIR, sid)
 
         current = read_mode(path)
-        new_mode = "read & write" if current == "read" else "read"
+        new_mode = "disabled" if current == "enabled" else "enabled"
         with open(path, "w") as f:
             f.write(new_mode)     # canonical value the Rego policies match
 
@@ -118,22 +118,22 @@ toggles silently regardless of what the shell is doing.
 
 ## "sudo mode"
 
-Write-enable is failsafe's `sudo`, so make the notification say so. Swap the `osascript`
+Disabling failsafe is your `sudo`, so make the notification say so. Swap the `osascript`
 line in the script for:
 
 ```python
-title = "🔓 failsafe: sudo mode" if new_mode == "read & write" else "🔒 failsafe"
-sub   = "write enabled — with great power…" if new_mode == "read & write" else "back to read-only"
+title = "🔓 failsafe: sudo mode" if new_mode == "disabled" else "🔒 failsafe"
+sub   = "write enabled — with great power…" if new_mode == "disabled" else "back to enabled"
 os.system(f"osascript -e 'display notification \"{sub}\" with title \"{title}\"' >/dev/null 2>&1")
 ```
 
 See the WezTerm guide's *"sudo mode"* section for the matching badge and the **sudo
-timeout** trick (auto-revert to read-only after N minutes; the same idea works here:
-`os.system(f\"( sleep 600; echo read > '{path}' ) &\")` right after the write).
+timeout** trick (auto-revert to enabled after N minutes; the same idea works here:
+`os.system(f\"( sleep 600; echo enabled > '{path}' ) &\")` right after the write).
 
 ## Notes
 
-- The file always stores the **canonical** value (`read` / `read & write`), the same
-  thing `failsafe mode set rw` / `ro` normalize to, so the toggle and the CLI agree.
+- The file always stores the **canonical** value (`enabled` / `disabled`), the same
+  thing `failsafe mode set on` / `off` normalize to, so the toggle and the CLI agree.
 - Per-session isolation depends on `$ITERM_SESSION_ID` being unique per session, which
   iTerm guarantees. If a session predates the step-1 hook, open a fresh tab.

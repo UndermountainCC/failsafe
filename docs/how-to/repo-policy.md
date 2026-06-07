@@ -15,12 +15,12 @@ In the root of the repository:
 touch .failsafe.rego
 ```
 
-The file must declare `package guard.repo`. This is the only layer that can write `allow_override` rules to loosen a bundled or user-level block.
+The file must declare `package failsafe.repo`. This is the only layer that can write `allow_override` rules to loosen a bundled or user-level block.
 
 Here is the policy from [`examples/policies/per-repo-protection.rego`](https://github.com/UndermountainCC/failsafe/blob/main/examples/policies/per-repo-protection.rego) as a starting point:
 
 ```rego
-package guard.repo
+package failsafe.repo
 
 import future.keywords.if
 import future.keywords.in
@@ -57,7 +57,7 @@ The validator checks the package name, rule names, rule shapes (`{"reason": …}
 
 ```
 ✓ parse OK
-✓ package: guard.repo
+✓ package: failsafe.repo
 ✓ rule names: no reserved-rule violations
 ✓ rule shapes: all block/allow_override return {"reason": ...}
 ✓ fact-field references: all known

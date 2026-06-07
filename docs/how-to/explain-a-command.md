@@ -49,14 +49,14 @@ Reason  : prod is read-only
 
 When a command contains multiple tool calls chained with `&&` or `;`, each call gets its own `── call N ──` block. explain stops at the **first block**, mirroring the hook.
 
-## explain always evaluates in read mode
+## explain always evaluates in enabled mode
 
-`explain` is a dry-run of the **default** guard: it always evaluates in `read` mode and
+`explain` is a dry-run of the **default** guard: it always evaluates in `enabled` mode and
 ignores the pane's mode (and `FAILSAFE_MODE`). That is deliberate: it answers the question
 that matters: *would this be blocked by default?*
 
-`read & write` only ever *bypasses* bundled `block` rules, so a command that `explain` shows
-as blocked by a bundled rule would be allowed in a write pane (your user and repo policies
+`disabled` mode only ever *bypasses* bundled `block` rules, so a command that `explain` shows
+as blocked by a bundled rule would be allowed in a disabled pane (your user and repo policies
 still apply). To see a live decision under the pane's actual mode, run the command through
 your agent so the [`failsafe hook`](../reference/cli.md#hook) path evaluates it. The hook
 reads the [mode-source chain](../reference/modes.md); `explain` does not.

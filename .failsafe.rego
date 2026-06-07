@@ -1,6 +1,6 @@
 # .failsafe.rego — repo policy for failsafe's own repo.
 # Demonstrates: a `block` rule and an `allow_override` rule.
-package guard.repo
+package failsafe.repo
 
 import future.keywords.if
 import future.keywords.in

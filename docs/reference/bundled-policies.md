@@ -5,15 +5,15 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Bundled Policies
 
-The exact verbs and subverbs allowed or blocked by each bundled policy in `read` mode.
+The exact verbs and subverbs allowed or blocked by each bundled policy while failsafe is enabled.
 
-Bundled policies live in `internal/embed/policies/` and are compiled into the binary. They are always the first layer in the chain (evaluated before user and repo policies). In `read & write` mode, no bundled `block` rule fires. Mode is checked as the first condition in every rule.
+Bundled policies live in `internal/embed/policies/` and are compiled into the binary. They are always the first layer in the chain (evaluated before user and repo policies). When failsafe is `disabled`, no bundled `block` rule fires. Mode is checked as the first condition in every rule via `input.failsafe_enabled`.
 
-Policy packages follow the naming convention `guard.bundled.<tool>`.
+Policy packages follow the naming convention `failsafe.bundled.<tool>` (legacy `guard.bundled.<tool>` still accepted).
 
 ---
 
-## `kubectl`: `guard.bundled.kubectl`
+## `kubectl`: `failsafe.bundled.kubectl`
 
 Source: `internal/embed/policies/kubectl.rego`
 
@@ -25,9 +25,9 @@ version  cluster-info  config  explain
 api-resources  api-versions  auth  diff  wait
 ```
 
-**Special carve-out for `apply --dry-run`:** `kubectl apply` with `--dry-run=client`, `--dry-run=server`, or `--dry-run=true` is allowed even in read mode.
+**Special carve-out for `apply --dry-run`:** `kubectl apply` with `--dry-run=client`, `--dry-run=server`, or `--dry-run=true` is allowed even while failsafe is enabled.
 
-**All other verbs are blocked** with reason: `"kubectl <verb> blocked in read mode"`.
+**All other verbs are blocked** with reason: `"kubectl <verb> blocked while failsafe is enabled"`.
 
 Examples of blocked verbs: `delete`, `scale`, `patch`, `drain`, `cordon`, `uncordon`, `taint`, `create`, `replace`, `rollout`, `label`, `annotate`, `expose`, `set`, `run`, `cp`, `attach`.
 
@@ -40,8 +40,8 @@ read_verbs := {
     "api-resources", "api-versions", "auth", "diff", "wait",
 }
 
-block contains {"reason": sprintf("kubectl %s blocked in read mode", [input.verb])} if {
-    input.mode == "read"
+block contains {"reason": sprintf("kubectl %s blocked while failsafe is enabled", [input.verb])} if {
+    not input.failsafe_enabled == false
     input.tool == "kubectl"
     input.verb != ""
     not input.verb in read_verbs
@@ -56,7 +56,7 @@ allowed_dry_run if {
 
 ---
 
-## `helm`: `guard.bundled.helm`
+## `helm`: `failsafe.bundled.helm`
 
 Source: `internal/embed/policies/helm.rego`
 
@@ -66,9 +66,9 @@ Source: `internal/embed/policies/helm.rego`
 list  get  status  show  search  version  history  template
 ```
 
-**`repo` verb, special subverb handling:** `helm repo list` is allowed; any other `helm repo <subverb>` (e.g. `add`, `remove`, `update`) is blocked with reason `"helm repo <subverb> blocked in read mode"`.
+**`repo` verb, special subverb handling:** `helm repo list` is allowed; any other `helm repo <subverb>` (e.g. `add`, `remove`, `update`) is blocked with reason `"helm repo <subverb> blocked while failsafe is enabled"`.
 
-**All other verbs are blocked** with reason `"helm <verb> blocked in read mode"`.
+**All other verbs are blocked** with reason `"helm <verb> blocked while failsafe is enabled"`.
 
 Examples of blocked verbs: `install`, `upgrade`, `uninstall`, `rollback`, `push`, `package`, `dependency`.
 
@@ -77,16 +77,16 @@ Examples of blocked verbs: `install`, `upgrade`, `uninstall`, `rollback`, `push`
 ```rego
 read_verbs := {"list", "get", "status", "show", "search", "version", "history", "template"}
 
-block contains {"reason": sprintf("helm %s blocked in read mode", [input.verb])} if {
-    input.mode == "read"
+block contains {"reason": sprintf("helm %s blocked while failsafe is enabled", [input.verb])} if {
+    not input.failsafe_enabled == false
     input.tool == "helm"
     input.verb != ""
     input.verb != "repo"
     not input.verb in read_verbs
 }
 
-block contains {"reason": sprintf("helm repo %s blocked in read mode", [input.subverb])} if {
-    input.mode == "read"
+block contains {"reason": sprintf("helm repo %s blocked while failsafe is enabled", [input.subverb])} if {
+    not input.failsafe_enabled == false
     input.tool == "helm"
     input.verb == "repo"
     input.subverb != "list"
@@ -95,7 +95,7 @@ block contains {"reason": sprintf("helm repo %s blocked in read mode", [input.su
 
 ---
 
-## `terraform` / `tofu`: `guard.bundled.terraform`
+## `terraform` / `tofu`: `failsafe.bundled.terraform`
 
 Source: `internal/embed/policies/terraform.rego`
 
@@ -107,9 +107,9 @@ Both `terraform` and `tofu` binaries are matched by the same tool parser and eva
 plan  show  output  validate  fmt  providers  version  graph
 ```
 
-**`state` verb, special subverb handling:** `terraform state list` and `terraform state show` are allowed; any other subverb (e.g. `mv`, `rm`, `pull`, `push`) is blocked with reason `"terraform state <subverb> blocked in read mode"`.
+**`state` verb, special subverb handling:** `terraform state list` and `terraform state show` are allowed; any other subverb (e.g. `mv`, `rm`, `pull`, `push`) is blocked with reason `"terraform state <subverb> blocked while failsafe is enabled"`.
 
-**All other verbs are blocked** with reason `"terraform <verb> blocked in read mode"`.
+**All other verbs are blocked** with reason `"terraform <verb> blocked while failsafe is enabled"`.
 
 Examples of blocked verbs: `apply`, `destroy`, `import`, `init`, `refresh`, `taint`, `untaint`, `workspace` (non-read subverbs).
 
@@ -118,16 +118,16 @@ Examples of blocked verbs: `apply`, `destroy`, `import`, `init`, `refresh`, `tai
 ```rego
 read_verbs := {"plan", "show", "output", "validate", "fmt", "providers", "version", "graph"}
 
-block contains {"reason": sprintf("terraform %s blocked in read mode", [input.verb])} if {
-    input.mode == "read"
+block contains {"reason": sprintf("terraform %s blocked while failsafe is enabled", [input.verb])} if {
+    not input.failsafe_enabled == false
     input.tool == "terraform"
     input.verb != ""
     input.verb != "state"
     not input.verb in read_verbs
 }
 
-block contains {"reason": sprintf("terraform state %s blocked in read mode", [input.subverb])} if {
-    input.mode == "read"
+block contains {"reason": sprintf("terraform state %s blocked while failsafe is enabled", [input.subverb])} if {
+    not input.failsafe_enabled == false
     input.tool == "terraform"
     input.verb == "state"
     not input.subverb in {"list", "show"}
@@ -136,7 +136,7 @@ block contains {"reason": sprintf("terraform state %s blocked in read mode", [in
 
 ---
 
-## `aws`: `guard.bundled.aws`
+## `aws`: `failsafe.bundled.aws`
 
 Source: `internal/embed/policies/aws.rego`
 
@@ -149,26 +149,26 @@ The AWS CLI uses a `<service> <operation>` pattern, parsed as `verb` (service) +
 - Any operation whose name starts with `describe-`, `list-`, or `get-` on any service.
 - A bare service invocation with no operation (e.g. `aws ec2`, `aws --help`).
 
-**Blocked in read mode:**
+**Blocked while failsafe is enabled:**
 
-- `aws s3 <subverb>` where `subverb` is not `ls` and not empty. Reason: `"aws s3 <subverb> blocked in read mode"`.
-- Any `aws <service> <operation>` where service is not `sts` or `s3`, operation is not empty, and operation does not start with `describe-`, `list-`, or `get-`. Reason: `"aws <service> <operation> blocked in read mode"`.
+- `aws s3 <subverb>` where `subverb` is not `ls` and not empty. Reason: `"aws s3 <subverb> blocked while failsafe is enabled"`.
+- Any `aws <service> <operation>` where service is not `sts` or `s3`, operation is not empty, and operation does not start with `describe-`, `list-`, or `get-`. Reason: `"aws <service> <operation> blocked while failsafe is enabled"`.
 
 Examples of blocked operations: `aws s3 rm`, `aws ec2 run-instances`, `aws ec2 terminate-instances`, `aws eks create-cluster`, `aws eks delete-cluster`, `aws iam create-role`, `aws ecr batch-delete-image`.
 
 **Full rule (exact source):**
 
 ```rego
-block contains {"reason": sprintf("aws s3 %s blocked in read mode", [input.subverb])} if {
-    input.mode == "read"
+block contains {"reason": sprintf("aws s3 %s blocked while failsafe is enabled", [input.subverb])} if {
+    not input.failsafe_enabled == false
     input.tool == "aws"
     input.verb == "s3"
     input.subverb != ""
     input.subverb != "ls"
 }
 
-block contains {"reason": sprintf("aws %s %s blocked in read mode", [input.verb, input.subverb])} if {
-    input.mode == "read"
+block contains {"reason": sprintf("aws %s %s blocked while failsafe is enabled", [input.verb, input.subverb])} if {
+    not input.failsafe_enabled == false
     input.tool == "aws"
     input.verb != ""
     input.verb != "sts"
@@ -184,7 +184,7 @@ is_read_action(action) if startswith(action, "get-")
 
 ---
 
-## `git`: `guard.bundled.git`
+## `git`: `failsafe.bundled.git`
 
 Source: `internal/embed/policies/git.rego`
 
@@ -194,11 +194,11 @@ The file exists so that `failsafe policies list` includes `git` in the bundled s
 
 ---
 
-## `failsafe`: `guard.bundled.failsafe`
+## `failsafe`: `failsafe.bundled.failsafe`
 
 Source: `internal/embed/policies/failsafe.rego`
 
-This policy guards the `failsafe` binary itself (dogfood). Rules fire **regardless of mode**: the `read`/`read & write` distinction does not apply.
+This policy guards the `failsafe` binary itself (dogfood). Rules fire **regardless of mode**: the `enabled`/`disabled` distinction does not apply.
 
 | Verb | Decision | Reason |
 |------|----------|--------|

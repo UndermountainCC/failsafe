@@ -100,14 +100,14 @@ you keep another writable.
 
 | Mode | | Behavior |
 | --- | --- | --- |
-| `read` | 🔒 | **Default.** Bundled policies block mutating verbs across `kubectl`, `helm`, `terraform`, `aws`. |
-| `read & write` | 🔓 | Bundled blocks bypassed. User and repo policies still apply. |
+| `enabled` | 🔒 | **Default.** Bundled policies block mutating verbs across `kubectl`, `helm`, `terraform`, `aws`. |
+| `disabled` | 🔓 | Bundled blocks bypassed. User and repo policies still apply. |
 
 ```bash
-failsafe toggle        # flip the current pane
-failsafe mode get      # show the effective mode
-failsafe mode set rw   # read & write   (aliases: rw / w)
-failsafe mode set ro   # read-only      (aliases: ro / r)
+failsafe toggle             # flip the current pane
+failsafe mode get           # show the effective mode
+failsafe mode set disabled  # disable failsafe   (aliases: off / rw / w / sudo)
+failsafe mode set enabled   # re-enable failsafe (aliases: on / ro / r / safe)
 ```
 
 **One-keystroke toggles, badges & status** — bind it in your terminal so you never type the command:
@@ -126,7 +126,7 @@ policy-as-code. They cascade across three layers: **bundled defaults** → **use
 (`~/.config/failsafe/`) → **repo** (`.failsafe.rego`).
 
 ```rego
-package guard.user
+package failsafe.user
 
 import future.keywords.if
 import future.keywords.in

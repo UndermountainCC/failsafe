@@ -13,8 +13,8 @@ The two mode values and the exact source-resolution chain that determines which 
 
 | Value | Meaning |
 |-------|---------|
-| `read` | Default. Bundled policies block all mutating verbs for `kubectl`, `helm`, `terraform`/`tofu`, and `aws`. User and repo policy `block` rules also apply. |
-| `read & write` | Bundled blocks are bypassed. User policy (`~/.config/failsafe/policy.rego`) and repo policy (`.failsafe.rego`) `block` rules still apply. |
+| `enabled` | Default. failsafe is active: bundled policies block all mutating verbs for `kubectl`, `helm`, `terraform`/`tofu`, and `aws`. User and repo policy `block` rules also apply. |
+| `disabled` | failsafe bundled blocks are bypassed. User policy (`~/.config/failsafe/policy.rego`) and repo policy (`.failsafe.rego`) `block` rules still apply. |
 
 The `allow_override` mechanism is separate from mode: a repo policy can override a block at any mode. See the [bundled policies](bundled-policies.md) and [configuration](configuration.md) pages.
 
@@ -22,7 +22,7 @@ The `allow_override` mechanism is separate from mode: a repo policy can override
 
 ## Mode source chain
 
-Sources are tried in order. The **first source that returns a value** wins; all remaining sources are skipped. If no source resolves, the hard-coded default `"read"` is used.
+Sources are tried in order. The **first source that returns a value** wins; all remaining sources are skipped. If no source resolves, the hard-coded default `"enabled"` is used.
 
 | Priority | Source type | Pattern / variable | Notes |
 |----------|-------------|-------------------|-------|
@@ -34,11 +34,11 @@ Sources are tried in order. The **first source that returns a value** wins; all 
 | 6 | File | `${HOME}/.claude/pane-mode/${CLAUDE_SESSION_ID}` | Per-session mode keyed on `CLAUDE_SESSION_ID`. Skipped when unset. |
 | 7 | TTY file | `${HOME}/.config/failsafe/tty-<device_id>` | Per-controlling-terminal mode. The device ID comes from `stat(/dev/tty).Rdev`. Skipped in headless/CI environments where `/dev/tty` is unavailable. |
 | 8 | File | `${HOME}/.config/failsafe/mode` | Global fallback, shared across all terminals that have no multiplexer variable set. |
-| (none) | Default | `"read"` | Hard-coded. Used when all sources are skipped. |
+| (none) | Default | `"enabled"` | Hard-coded. Used when all sources are skipped. |
 
 ### File format
 
-All file sources contain a single line: either `read` or `read & write`. Trailing whitespace is trimmed. The file is written atomically (temp-file + rename) by `toggle` and `mode set`.
+All file sources contain a single line: either `enabled` or `disabled`. Trailing whitespace is trimmed. The file is written atomically (temp-file + rename) by `toggle` and `mode set`.
 
 ### Variable expansion
 
@@ -62,7 +62,7 @@ In headless environments (CI, daemon, `ssh` without a tty), `open("/dev/tty")` f
 
 | Input | Canonical value written |
 |-------|------------------------|
-| `ro`, `r`, `read` | `read` |
-| `rw`, `w`, `read & write`, `read&write`, `read+write`, `readwrite` | `read & write` |
+| `enabled`, `enable`, `on`, `closed`, `close`, `lock`, `ro`, `r`, `read`, `safe` | `enabled` |
+| `disabled`, `disable`, `off`, `open`, `unlock`, `rw`, `w`, `write`, `sudo` | `disabled` |
 
-The canonical values are what the Rego policy layer reads: `input.mode == "read"` matches only the exact string `"read"`.
+The primary Rego interface is **`input.failsafe_enabled`** (bool): `true` when mode is `enabled`, `false` when `disabled`. The legacy field **`input.mode`** (string) is also present for back-compat, carrying `"read"` (when enabled) or `"read & write"` (when disabled) — see [Fact Schema](fact-schema.md).

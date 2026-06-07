@@ -63,13 +63,13 @@ block contains {"reason": "npm install without --ignore-scripts runs postinstall
     input.tool == "npm"
     input.verb == "install"
     not input.flags["ignore-scripts"]
-    input.mode == "read"
+    not input.failsafe_enabled == false
 }
 
-# Block npx unconditionally in read mode — it fetches and runs remote code.
-block contains {"reason": "npx fetches and executes remote code; flip to write mode if you intend this"} if {
+# Block npx unconditionally while failsafe is enabled — it fetches and runs remote code.
+block contains {"reason": "npx fetches and executes remote code; disable failsafe if you intend this"} if {
     input.tool == "npx"
-    input.mode == "read"
+    not input.failsafe_enabled == false
 }
 ```
 

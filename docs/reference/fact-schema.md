@@ -15,7 +15,8 @@ Policies reference fields as `input.<field>`. All fields are always present (nev
 
 | Field | Type | Source | Description |
 |-------|------|--------|-------------|
-| `input.mode` | `string` | Mode chain | `"read"` or `"read & write"`. Bundled policies gate on `input.mode == "read"`. |
+| `input.failsafe_enabled` | `bool` | Mode chain | **Primary mode interface.** `true` when failsafe is active (`enabled` mode); `false` when disabled. Bundled policies gate on `not input.failsafe_enabled == false`. Use this field in new policies. |
+| `input.mode` | `string` | Mode chain | **Legacy alias.** `"read"` when failsafe is enabled, `"read & write"` when disabled. Retained for back-compat with existing Rego rules that used the old vocabulary. Prefer `input.failsafe_enabled` in new code. |
 | `input.tool` | `string` | Tool registry | Registry name of the matched tool: `"kubectl"`, `"helm"`, `"terraform"`, `"aws"`, `"git"`, `"failsafe"`. |
 | `input.verb` | `string` | Tool parser | First non-flag positional after the tool token. E.g. `"delete"` for `kubectl delete pods`. Empty string when no verb is present. |
 | `input.subverb` | `string` | Tool parser | Second-level positional for compound commands. E.g. `"list"` for `terraform state list`, `"list"` for `helm repo list`. Empty string when not present. |
@@ -115,6 +116,7 @@ When using `failsafe test <path>`, each `fact.json` is the raw `input` map seria
 
 ```json
 {
+  "failsafe_enabled": true,
   "mode": "read",
   "tool": "kubectl",
   "verb": "delete",
@@ -129,3 +131,5 @@ When using `failsafe test <path>`, each `fact.json` is the raw `input` map seria
   "kubectl": { "current_context": "arn:aws:eks:us-east-1:123456789:cluster/prod", "cluster_name": "prod" }
 }
 ```
+
+`failsafe_enabled` is `true` here because the pane's mode is `enabled` (the default). When mode is `disabled`, `failsafe_enabled` is `false` and `mode` (legacy) carries `"read & write"`.

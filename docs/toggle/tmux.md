@@ -10,7 +10,7 @@ mode-source chain in the README). tmux's `#{pane_id}` format **equals** that `$T
 env var, so a key binding can write the exact file the guard reads instantly, with no chain
 ambiguity. Missing file = `read` (the safe default).
 
-Bind a key to flip the focused pane between `read` and `read & write`.
+Bind a key to flip the focused pane between `enabled` and `disabled`.
 
 ## 1. The toggle helper
 
@@ -27,8 +27,8 @@ dir="$HOME/.claude/pane-mode"
 file="$dir/$pane"
 mkdir -p "$dir"
 
-current="$(cat "$file" 2>/dev/null || echo read)"
-[ "$current" = "read & write" ] && next="read" || next="read & write"
+current="$(cat "$file" 2>/dev/null || echo enabled)"
+[ "$current" = "disabled" ] && next="enabled" || next="disabled"
 printf '%s' "$next" > "$file"          # canonical value the Rego policies match
 
 tmux display-message "🔒 failsafe: $current → $next"
@@ -57,11 +57,11 @@ Show the focused pane's mode in the status bar. Save as
 
 ```bash
 #!/usr/bin/env bash
-mode="$(cat "$HOME/.claude/pane-mode/${1:-}" 2>/dev/null || echo read)"
-if [ "$mode" = "read & write" ]; then
+mode="$(cat "$HOME/.claude/pane-mode/${1:-}" 2>/dev/null || echo enabled)"
+if [ "$mode" = "disabled" ]; then
   printf '#[fg=yellow,bold]🔓 sudo#[default]'   # write enabled — make it loud
 else
-  printf '#[fg=green]🔒 read#[default]'
+  printf '#[fg=green]🔒 on#[default]'
 fi
 ```
 
@@ -92,8 +92,8 @@ bind -n C-M-t run-shell "WEZTERM_PANE= ITERM_SESSION_ID= TMUX_PANE='#{pane_id}' 
 
 ## Notes
 
-- The file always stores the **canonical** value (`read` / `read & write`), the same
-  thing `failsafe mode set rw` / `ro` normalize to, so the toggle, the status bar, and
+- The file always stores the **canonical** value (`enabled` / `disabled`), the same
+  thing `failsafe mode set on` / `off` normalize to, so the toggle, the status bar, and
   the CLI all agree.
 - `$TMUX_PANE` (e.g. `%5`) is unique per pane and stable for the pane's life, so each
   split keeps its own mode.

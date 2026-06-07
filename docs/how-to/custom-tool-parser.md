@@ -94,7 +94,7 @@ gh            (user YAML at /Users/you/.config/failsafe/tools/gh.yaml)
 A loaded parser alone does not block anything: it only makes facts available. Add a `block` rule to your user policy (`~/.config/failsafe/policy.rego`) to act on the new tool:
 
 ```rego
-package guard.user
+package failsafe.user
 
 import future.keywords.if
 import future.keywords.contains

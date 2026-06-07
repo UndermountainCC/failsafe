@@ -83,14 +83,14 @@ You should see:
 Verb:        delete
 Positional:  ns payments
 Effective cwd: /your/current/dir
-Mode:        read
+Mode:        enabled
 Policy chain (1 modules at this cwd):
   [bundled] kubectl.rego
 Decision: BLOCK
-Reason  : kubectl delete blocked in read mode
+Reason  : kubectl delete blocked while failsafe is enabled
 ```
 
-`explain` always evaluates in **read** mode, the safe default. The bundled `kubectl.rego` policy blocks every non-read verb (`delete`, `apply`, `scale`, …) when mode is `read`. `kubectl get`, `kubectl describe`, and `kubectl logs` would be allowed.
+`explain` always evaluates in **enabled** mode, the safe default. The bundled `kubectl.rego` policy blocks every mutating verb (`delete`, `apply`, `scale`, …) while failsafe is enabled. `kubectl get`, `kubectl describe`, and `kubectl logs` would be allowed.
 
 !!! success "You just verified the guard"
     failsafe parsed the command, identified the tool (`kubectl`), extracted the verb (`delete`), and blocked it before any agent or cluster was involved.
@@ -99,10 +99,10 @@ Reason  : kubectl delete blocked in read mode
 
 ## Step 4: Flip to write mode and back
 
-When you *do* want to allow mutations, for example while you are actively working in a cluster you trust, flip the current pane to write:
+When you *do* want to allow mutations, for example while you are actively working in a cluster you trust, disable failsafe for the current pane:
 
 ```bash
-failsafe mode set rw
+failsafe mode set disabled
 ```
 
 Confirm the mode changed:
@@ -112,7 +112,7 @@ failsafe mode get
 ```
 
 ```console
-read & write
+disabled
 ```
 
 Now run a read-only `kubectl get` to confirm allowed commands still pass through:
@@ -133,12 +133,12 @@ Decision: ALLOW
 ```
 
 !!! note
-    `explain` always evaluates in read mode regardless of your pane's current mode: it is a safe dry-run tool. To observe the effect of write mode on a live agent session, set `rw` and then run Claude Code in that pane; `failsafe hook` (not `explain`) reads the pane's actual mode file.
+    `explain` always evaluates in enabled mode regardless of your pane's current mode: it is a safe dry-run tool. To observe the effect of disabled mode on a live agent session, set `disabled` and then run Claude Code in that pane; `failsafe hook` (not `explain`) reads the pane's actual mode file.
 
-When you are done, lock the pane back to read-only:
+When you are done, re-enable failsafe for the pane:
 
 ```bash
-failsafe mode set ro
+failsafe mode set enabled
 ```
 
 Or use the shorthand toggle (useful for a terminal keybinding):
@@ -147,10 +147,10 @@ Or use the shorthand toggle (useful for a terminal keybinding):
 failsafe toggle
 ```
 
-`failsafe mode get` will confirm you are back to `read`.
+`failsafe mode get` will confirm you are back to `enabled`.
 
 !!! tip "Per-pane, not per-shell"
-    Mode is stored per pane (keyed by `$WEZTERM_PANE`, `$TMUX_PANE`, or `$ITERM_SESSION_ID`). You can keep an agent pane locked to `read` while a human pane next to it is in `read & write`. See the toggle docs for one-keystroke bindings in [WezTerm](../toggle/wezterm.md), [iTerm2](../toggle/iterm.md), and [tmux](../toggle/tmux.md).
+    Mode is stored per pane (keyed by `$WEZTERM_PANE`, `$TMUX_PANE`, or `$ITERM_SESSION_ID`). You can keep an agent pane in `enabled` mode while a human pane next to it is in `disabled`. See the toggle docs for one-keystroke bindings in [WezTerm](../toggle/wezterm.md), [iTerm2](../toggle/iterm.md), and [tmux](../toggle/tmux.md).
 
 ---
 
@@ -158,7 +158,7 @@ failsafe toggle
 
 - failsafe is installed and on your `PATH`.
 - Claude Code will call `failsafe hook` before every `Bash` command an agent runs.
-- The bundled policies block destructive `kubectl`, `helm`, `terraform`, and `aws` commands while your pane is in read mode (the default).
+- The bundled policies block destructive `kubectl`, `helm`, `terraform`, and `aws` commands while failsafe is enabled (the default).
 - You know how to flip a pane to write, verify the mode, and flip it back.
 
 ---

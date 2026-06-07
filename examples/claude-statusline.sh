@@ -5,7 +5,7 @@
 # failsafe ▸ Claude Code status line helper.
 #
 # Shows the current guard mode (and cwd / model) at the bottom of Claude Code, so
-# you always know whether the agent can mutate infra — 🔒 read or 🔓 write.
+# you always know whether the agent can mutate infra — 🔒 enabled or 🔓 disabled.
 #
 # Wire it in ~/.claude/settings.json:
 #   {
@@ -25,8 +25,8 @@ input="$(cat)"
 # Effective guard mode for the current pane/session (mode-source chain in the README).
 mode="$(failsafe mode get 2>/dev/null | cut -f1)"
 case "$mode" in
-  "read & write") guard="🔓 write" ;;
-  *)              guard="🔒 read"  ;;
+  "disabled") guard="🔓 disabled" ;;
+  *)          guard="🔒 enabled"  ;;
 esac
 
 # cwd + model are nice context when jq is present; degrade gracefully without it.

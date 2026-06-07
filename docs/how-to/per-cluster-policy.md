@@ -26,10 +26,10 @@ The value in the **NAME** column becomes `input.kubectl.cluster_name` inside you
 mkdir -p ~/.config/failsafe
 ```
 
-Open `~/.config/failsafe/policy.rego` in your editor. It must declare `package guard.user`:
+Open `~/.config/failsafe/policy.rego` in your editor. It must declare `package failsafe.user`:
 
 ```rego
-package guard.user
+package failsafe.user
 
 import future.keywords.if
 import future.keywords.in
@@ -58,7 +58,7 @@ block contains {"reason": "kubectl delete namespace blocked on dev cluster"} if 
 This is the policy from [`examples/policies/per-cluster.rego`](https://github.com/UndermountainCC/failsafe/blob/main/examples/policies/per-cluster.rego). Copy it as a starting point and adjust cluster names.
 
 !!! note "User layer blocks survive write mode"
-    `~/.config/failsafe/policy.rego` lives in the user layer and fires even when a pane is in `read & write` mode. Only a repo-level `allow_override` in a trusted `.failsafe.rego` can lift a user-layer block. See [Policy cascade](../explanation/policy-cascade.md).
+    `~/.config/failsafe/policy.rego` lives in the user layer and fires even when a pane is in `disabled` mode. Only a repo-level `allow_override` in a trusted `.failsafe.rego` can lift a user-layer block. See [Policy cascade](../explanation/policy-cascade.md).
 
 ## 3. Validate before relying on it
 
@@ -70,7 +70,7 @@ Expected output:
 
 ```
 ✓ parse OK
-✓ package: guard.user
+✓ package: failsafe.user
 ✓ rule names: no reserved-rule violations
 ✓ rule shapes: all block/allow_override return {"reason": ...}
 ✓ fact-field references: all known

@@ -79,7 +79,7 @@ See [Design Principles](./design-principles.md) for the full fail-closed discuss
 
 ## Read-only by default, per pane
 
-Beyond comprehension, failsafe establishes a mode boundary. Every terminal pane starts in `read` mode: the bundled policies block all mutating verbs across `kubectl`, `helm`, `terraform`, `aws`, and `git`. You flip a pane to `read & write` when you intend to make changes, and it flips back when you close it or reset it.
+Beyond comprehension, failsafe establishes a mode boundary. Every terminal pane starts in `enabled` mode: the bundled policies block all mutating verbs across `kubectl`, `helm`, `terraform`, `aws`, and `git`. You flip a pane to `disabled` when you intend to make changes, and it flips back when you close it or reset it.
 
 The per-pane granularity matters: you can run an agent in one pane (armored, read-only) while keeping another agent shell in another pane fully writable. The guard does not get in your way. It gets in the agent's way when the agent is about to do something you have not consciously allowed.
 

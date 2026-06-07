@@ -6,7 +6,7 @@ Drop-in starting points for failsafe policies and tool definitions.
 
 - `policies/per-cluster.rego` — Per-cluster kubectl rules (prod is read-only;
   dev allows mutations except namespace deletion). Place in
-  `~/.config/failsafe/policy.rego` (and change the package to `guard.user`).
+  `~/.config/failsafe/policy.rego` (and change the package to `failsafe.user`).
 - `policies/per-repo-protection.rego` — Repo-level: kubectl apply via CI only,
   and no force-push to acme default branches. Place at
   `<repo>/.failsafe.rego`.

@@ -10,7 +10,7 @@ failsafe resolves the current pane's mode from `~/.claude/pane-mode/$WEZTERM_PAN
 `pane:pane_id()`, so the toggle can **write that file directly**: no subprocess, no
 `failsafe` call, instant. Missing file = `read` (the safe default).
 
-Bind `Ctrl+Alt+T` to flip the focused pane between `read` and `read & write`.
+Bind `Ctrl+Alt+T` to flip the focused pane between `enabled` and `disabled`.
 
 ## Drop-in snippet
 
@@ -21,7 +21,7 @@ dependencies beyond WezTerm itself.
 local wezterm = require("wezterm")
 local act = wezterm.action
 
--- ~/.claude/pane-mode/<pane_id> holds "read" or "read & write".
+-- ~/.claude/pane-mode/<pane_id> holds "enabled" or "disabled".
 -- This must match failsafe's mode-source chain ($WEZTERM_PANE).
 local function mode_dir()
   return (os.getenv("HOME") or "") .. "/.claude/pane-mode"
@@ -33,16 +33,16 @@ end
 
 local function get_mode(pane_id)
   local f = io.open(mode_path(pane_id), "r")
-  if not f then return "read" end          -- missing file = safe default
+  if not f then return "enabled" end          -- missing file = safe default
   local line = f:read("*l")
   f:close()
   if line and #line > 0 then return line end
-  return "read"
+  return "enabled"
 end
 
 local function toggle_mode(pane_id)
   local current = get_mode(pane_id)
-  local next_mode = (current == "read") and "read & write" or "read"
+  local next_mode = (current == "enabled") and "disabled" or "enabled"
   os.execute("mkdir -p '" .. mode_dir() .. "'")
   local f = io.open(mode_path(pane_id), "w")
   if f then
@@ -79,17 +79,17 @@ for _, k in ipairs(toggler.keys) do
 end
 ```
 
-## Optional: a tab-title badge (`r` / `rw`)
+## Optional: a tab-title badge (`on` / `off`)
 
 Show the focused pane's mode in the tab title so the state is always visible.
 
 ```lua
 wezterm.on("format-tab-title", function(tab)
   local mode = toggler.get_mode(tab.active_pane.pane_id)
-  local badge = (mode == "read & write") and " rw " or " r "
+  local badge = (mode == "disabled") and " off " or " on "
   return {
-    -- amber when writable (caution), dim when read-only
-    { Foreground = { Color = (mode == "read & write") and "#ffb02e" or "#7a756c" } },
+    -- amber when disabled/writable (caution), dim when enabled/read-only
+    { Foreground = { Color = (mode == "disabled") and "#ffb02e" or "#7a756c" } },
     { Text = badge },
     { Text = tab.active_pane.title },
   }
@@ -98,7 +98,7 @@ end)
 
 ## Make it yours: "sudo mode"
 
-Flipping a pane to `read & write` is failsafe's `sudo`: you're handing the agent the
+Flipping a pane to `disabled` is failsafe's `sudo`: you're handing the agent the
 sharp knives, on purpose, for a moment. Lean into it so the elevated state is impossible
 to miss.
 
@@ -106,10 +106,10 @@ to miss.
 -- "sudo make me a sandwich."  — https://xkcd.com/149/
 local toggle_action = wezterm.action_callback(function(window, pane)
   local old, new = toggle_mode(pane:pane_id())
-  if new == "read & write" then
+  if new == "disabled" then
     window:toast_notification("🔓 failsafe: sudo mode", "write enabled — with great power…", nil, 4000)
   else
-    window:toast_notification("🔒 failsafe", "back to read-only. phew.", nil, 2500)
+    window:toast_notification("🔒 failsafe", "back to enabled. phew.", nil, 2500)
   end
   window:set_config_overrides(window:get_config_overrides() or {})
 end)
@@ -118,30 +118,30 @@ end)
 Badge it as `sudo` when elevated:
 
 ```lua
-local badge = (mode == "read & write") and " ⚡ sudo " or " r "
+local badge = (mode == "disabled") and " ⚡ sudo " or " on "
 ```
 
 **Bonus: sudo timeout.** Real `sudo` forgets you after a few minutes; a *fail*-safe
-should too. Auto-revert a pane to read-only after N minutes of write, so you never walk
+should too. Auto-revert a pane to enabled after N minutes of disabled, so you never walk
 away with the knives out:
 
 ```lua
--- inside toggle_mode, right after writing "read & write":
-if next_mode == "read & write" then
+-- inside toggle_mode, right after writing "disabled":
+if next_mode == "disabled" then
   os.execute(string.format(
-    "( sleep 600; echo read > '%s' ) >/dev/null 2>&1 &",  -- 10 min, detached
+    "( sleep 600; echo enabled > '%s' ) >/dev/null 2>&1 &",  -- 10 min, detached
     mode_path(pane_id)))
 end
 ```
 
-(The label is cosmetic: the file still stores the canonical `read & write`, so policies
+(The label is cosmetic: the file still stores the canonical `disabled`, so policies
 and `failsafe mode get` are unaffected.)
 
 ## Notes
 
-- The file always stores the **canonical** value (`read` / `read & write`) because
-  that is what the bundled Rego policies match on (`input.mode == "read"`). The CLI's
-  `rw` / `ro` aliases (`failsafe mode set rw`) normalize to the same canonical value, so
-  the WezTerm toggle and the CLI stay compatible.
+- The file always stores the **canonical** value (`enabled` / `disabled`) because
+  that is what the bundled Rego policies match on (`input.failsafe_enabled`). The CLI's
+  `rw` / `ro` / `on` / `off` aliases (`failsafe mode set disabled`) normalize to the same
+  canonical value, so the WezTerm toggle and the CLI stay compatible.
 - Prefer not to write the file from Lua? Replace `toggle_mode` with a spawn of
   `failsafe toggle`, but the direct write is instant and needs no binary on PATH.
