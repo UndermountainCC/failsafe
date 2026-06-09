@@ -267,6 +267,14 @@ func Hook(stdin io.Reader, stdout, stderr io.Writer, opts HookOptions) int {
 // It uses config defaults (identical to the previous hardcoded values).
 func DefaultModeChain() *mode.Chain { return defaultModeChain() }
 
+// ModeChainFromConfig builds a mode.Chain from a loaded *config.Config.
+// home is the resolved home directory (already expanded, no tilde).
+// Callers that already hold a *config.Config should prefer this over
+// DefaultModeChain so that Mode.PaneDir and Mode.Default from config are used.
+func ModeChainFromConfig(cfg *config.Config, home string) *mode.Chain {
+	return buildModeChain(cfg, home)
+}
+
 // EnvFromOS returns os.Environ() as a map.
 func EnvFromOS() map[string]string {
 	out := map[string]string{}

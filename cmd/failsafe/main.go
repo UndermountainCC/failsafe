@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/UndermountainCC/failsafe/internal/auditlog"
 	"github.com/UndermountainCC/failsafe/internal/config"
 	"github.com/UndermountainCC/failsafe/internal/subcommand"
 )
@@ -46,6 +45,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return subcommand.Explain(args[2:], stdout, subcommand.ExplainOptions{
 				Home: os.Getenv("HOME"),
 				CWD:  cwd,
+				Mode: cfg.Mode.Default,
 			})
 		case "test":
 			if len(args) < 3 {
@@ -73,8 +73,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		case "trust":
 			cwd, _ := os.Getwd()
 			return subcommand.Trust(args[2:], stdout, subcommand.TrustOptions{
-				Home: os.Getenv("HOME"),
-				CWD:  cwd,
+				Home:      os.Getenv("HOME"),
+				CWD:       cwd,
+				TrustPath: cfg.Trust.Path,
 			})
 		case "audit":
 			cwd, _ := os.Getwd()
@@ -83,12 +84,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			}
 			return subcommand.Audit(cwd, stdout, subcommand.AuditOptions{Home: os.Getenv("HOME")})
 		case "report":
-			// Read from wherever the hook writes: reuse DefaultLogger's path
-			// resolution so FAILSAFE_LOG and the default home path agree.
-			home := os.Getenv("HOME")
+			// LogPath comes from config so report reads from the same path the
+			// hook writes to (cfg.Log.Path already honours FAILSAFE_LOG shims).
 			return subcommand.Report(args[2:], stdout, subcommand.ReportOptions{
-				Home:    home,
-				LogPath: auditlog.DefaultLogger(home, os.Getenv).Path,
+				Home:    os.Getenv("HOME"),
+				LogPath: cfg.Log.Path,
 			})
 		case "log":
 			home := os.Getenv("HOME")
@@ -98,7 +98,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			})
 		case "toggle":
 			return subcommand.Toggle(stdout, subcommand.ToggleOptions{
-				Chain: subcommand.DefaultModeChain(),
+				Chain: subcommand.ModeChainFromConfig(cfg, os.Getenv("HOME")),
 				Env:   subcommand.EnvFromOS(),
 			})
 		case "tools":
@@ -106,7 +106,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				fmt.Fprintln(stderr, "usage: failsafe tools list")
 				return 2
 			}
-			return subcommand.ToolsList(stdout, subcommand.ToolsListOptions{Home: os.Getenv("HOME")})
+			return subcommand.ToolsList(stdout, subcommand.ToolsListOptions{
+				Home:     os.Getenv("HOME"),
+				ToolsDir: cfg.Policy.ToolsDir,
+			})
 		case "policies":
 			if len(args) < 3 || args[2] != "list" {
 				fmt.Fprintln(stderr, "usage: failsafe policies list")
@@ -125,7 +128,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			switch args[2] {
 			case "get":
 				return subcommand.ModeGet(stdout, subcommand.ModeOptions{
-					Chain: subcommand.DefaultModeChain(),
+					Chain: subcommand.ModeChainFromConfig(cfg, os.Getenv("HOME")),
 					Env:   subcommand.EnvFromOS(),
 				})
 			case "set":
@@ -134,7 +137,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 					return 2
 				}
 				return subcommand.ModeSet(args[3], stdout, subcommand.ModeOptions{
-					Chain: subcommand.DefaultModeChain(),
+					Chain: subcommand.ModeChainFromConfig(cfg, os.Getenv("HOME")),
 					Env:   subcommand.EnvFromOS(),
 				})
 			default:

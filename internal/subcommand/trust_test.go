@@ -112,3 +112,44 @@ func TestTrust_CheckCWDDefault(t *testing.T) {
 		t.Errorf("check from trusted repo cwd should exit 0, got %d, out=%q", code, out.String())
 	}
 }
+
+// TestTrust_CustomTrustPath proves that TrustOptions.TrustPath (sourced from
+// cfg.Trust.Path in main.go) is used instead of the Home-derived default path.
+// A repo added via the custom path is visible when listing with the same path,
+// but NOT visible when listing via the default Home-derived path — confirming
+// the custom path is honoured and does not accidentally share state.
+func TestTrust_CustomTrustPath(t *testing.T) {
+	dir := t.TempDir()
+	home := filepath.Join(dir, "home")
+	customTrustPath := filepath.Join(dir, "custom", "trusted-repos.yaml")
+	repo := filepath.Join(home, "Code", "custom-project")
+	os.MkdirAll(repo, 0o755)
+
+	// Add repo using the custom TrustPath.
+	var out bytes.Buffer
+	code := Trust([]string{repo}, &out, TrustOptions{
+		Home:      home,
+		CWD:       repo,
+		TrustPath: customTrustPath,
+	})
+	if code != 0 {
+		t.Fatalf("add with custom path exit=%d out=%q", code, out.String())
+	}
+
+	// List via the same custom path: repo should appear.
+	out.Reset()
+	code = Trust([]string{"list"}, &out, TrustOptions{Home: home, TrustPath: customTrustPath})
+	if code != 0 {
+		t.Fatalf("list with custom path exit=%d out=%q", code, out.String())
+	}
+	if !strings.Contains(out.String(), repo) {
+		t.Errorf("list via custom path should contain %q; got: %s", repo, out.String())
+	}
+
+	// List via the default Home-derived path: repo must NOT appear (separate file).
+	out.Reset()
+	Trust([]string{"list"}, &out, TrustOptions{Home: home})
+	if strings.Contains(out.String(), repo) {
+		t.Errorf("list via default path must not see repo added to custom path; got: %s", out.String())
+	}
+}

@@ -15,7 +15,8 @@ import (
 )
 
 type ToolsListOptions struct {
-	Home string
+	Home     string
+	ToolsDir string // explicit tools directory; empty → derive from Home
 }
 
 func ToolsList(out io.Writer, opts ToolsListOptions) int {
@@ -27,8 +28,11 @@ func ToolsList(out io.Writer, opts ToolsListOptions) int {
 	for _, n := range embedfs.BundledToolNames() {
 		rows = append(rows, row{strings.TrimSuffix(n, ".yaml"), "bundled YAML"})
 	}
-	if opts.Home != "" {
-		userDir := filepath.Join(opts.Home, ".config", "failsafe", "tools")
+	userDir := opts.ToolsDir
+	if userDir == "" && opts.Home != "" {
+		userDir = filepath.Join(opts.Home, ".config", "failsafe", "tools")
+	}
+	if userDir != "" {
 		entries, _ := fs.ReadDir(os.DirFS(userDir), ".")
 		for _, e := range entries {
 			if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {

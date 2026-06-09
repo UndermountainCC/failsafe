@@ -16,9 +16,10 @@ import (
 // TrustOptions configures the Trust subcommand. Home and CWD are explicit so
 // tests can drive the dispatcher without touching the process environment.
 type TrustOptions struct {
-	Home   string
-	CWD    string
-	Reason string // for `trust .` / `trust <path>`
+	Home      string
+	CWD       string
+	Reason    string // for `trust .` / `trust <path>`
+	TrustPath string // explicit path to trusted-repos.yaml; empty → derive from Home
 }
 
 // Trust dispatches based on args[0] (the verb): "list", "remove", "check", or
@@ -82,8 +83,17 @@ func trustAddDot(out io.Writer, opts TrustOptions) int {
 	return trustAdd(repo, out, opts)
 }
 
+// loadTrust opens the trust database, preferring opts.TrustPath when set and
+// falling back to the standard path derived from opts.Home.
+func loadTrust(opts TrustOptions) (*trust.Trust, error) {
+	if opts.TrustPath != "" {
+		return trust.LoadFromPath(opts.TrustPath)
+	}
+	return trust.Load(opts.Home)
+}
+
 func trustAdd(path string, out io.Writer, opts TrustOptions) int {
-	tr, err := trust.Load(opts.Home)
+	tr, err := loadTrust(opts)
 	if err != nil {
 		fmt.Fprintf(out, "trust load: %v\n", err)
 		return 2
@@ -101,7 +111,7 @@ func trustAdd(path string, out io.Writer, opts TrustOptions) int {
 }
 
 func trustList(out io.Writer, opts TrustOptions) int {
-	tr, err := trust.Load(opts.Home)
+	tr, err := loadTrust(opts)
 	if err != nil {
 		fmt.Fprintf(out, "trust load: %v\n", err)
 		return 2
@@ -125,7 +135,7 @@ func trustList(out io.Writer, opts TrustOptions) int {
 }
 
 func trustRemove(path string, out io.Writer, opts TrustOptions) int {
-	tr, err := trust.Load(opts.Home)
+	tr, err := loadTrust(opts)
 	if err != nil {
 		fmt.Fprintf(out, "trust load: %v\n", err)
 		return 2
@@ -143,7 +153,7 @@ func trustRemove(path string, out io.Writer, opts TrustOptions) int {
 }
 
 func trustCheck(path string, out io.Writer, opts TrustOptions) int {
-	tr, err := trust.Load(opts.Home)
+	tr, err := loadTrust(opts)
 	if err != nil {
 		fmt.Fprintf(out, "trust load: %v\n", err)
 		return 2
