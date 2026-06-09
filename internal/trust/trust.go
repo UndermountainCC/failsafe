@@ -37,7 +37,12 @@ type fileShape struct {
 // Load reads the trust file from $HOME/.config/failsafe/trusted-repos.yaml.
 // A missing file is not an error; you get an empty Trust ready for Add.
 func Load(home string) (*Trust, error) {
-	path := filepath.Join(home, ".config", "failsafe", "trusted-repos.yaml")
+	return LoadFromPath(filepath.Join(home, ".config", "failsafe", "trusted-repos.yaml"))
+}
+
+// LoadFromPath reads the trust file from an explicit path.
+// A missing file is not an error; you get an empty Trust ready for Add.
+func LoadFromPath(path string) (*Trust, error) {
 	t := &Trust{file: path}
 	body, err := os.ReadFile(path)
 	if err != nil {

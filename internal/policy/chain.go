@@ -20,6 +20,11 @@ type DiscoverOpts struct {
 	Home          string
 	CWD           string
 
+	// UserPolicyPath overrides the default user policy path
+	// ($HOME/.config/failsafe/policy.rego). When non-empty, this path is used
+	// instead of deriving it from Home. Path must be fully expanded (no tildes).
+	UserPolicyPath string
+
 	// IsTrusted reports whether a repo path (the directory containing the
 	// .failsafe.rego) has been explicitly trusted via `failsafe trust`.
 	// Nil → all repos are untrusted (safe default).
@@ -43,8 +48,11 @@ func Discover(opts DiscoverOpts) ([]Module, error) {
 		out = append(out, mods...)
 	}
 
-	if opts.Home != "" {
-		userPath := filepath.Join(opts.Home, ".config", "failsafe", "policy.rego")
+	if opts.UserPolicyPath != "" || opts.Home != "" {
+		userPath := opts.UserPolicyPath
+		if userPath == "" {
+			userPath = filepath.Join(opts.Home, ".config", "failsafe", "policy.rego")
+		}
 		body, err := os.ReadFile(userPath)
 		switch {
 		case err == nil:

@@ -331,6 +331,12 @@ func (e *injectableEnvProvider) Read() (map[string]interface{}, error) {
 		if mapped == "" {
 			continue
 		}
+		// Skip single-segment keys (e.g. FAILSAFE_MODE → "mode"): they map to
+		// struct fields, not leaf values. FAILSAFE_MODE is intentionally handled
+		// via the mode chain's EnvSource, not the config struct.
+		if !strings.Contains(mapped, ".") {
+			continue
+		}
 		val := e.getenv(rawKey)
 		parts := strings.Split(mapped, ".")
 		setNested(out, parts, val)

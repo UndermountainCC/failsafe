@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/UndermountainCC/failsafe/internal/auditlog"
+	"github.com/UndermountainCC/failsafe/internal/config"
 	"github.com/UndermountainCC/failsafe/internal/subcommand"
 )
 
@@ -20,6 +21,14 @@ func main() {
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	// Load config once at the top so all subcommands that need it can share it.
+	// Fail-closed: a bad config.yaml must not allow the hook to run permissively.
+	cfg, err := config.Load(config.Options{Home: os.Getenv("HOME"), Env: os.Getenv})
+	if err != nil {
+		fmt.Fprintf(stderr, "failsafe: load config: %v\n", err)
+		return 1
+	}
+
 	if len(args) >= 2 {
 		switch args[1] {
 		case "--version", "-v":
@@ -29,7 +38,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			printHelp(stdout)
 			return 0
 		case "hook":
-			return subcommand.Hook(stdin, stdout, stderr, subcommand.HookOptions{})
+			return subcommand.Hook(stdin, stdout, stderr, subcommand.HookOptions{Cfg: cfg})
 		case "mcp":
 			return subcommand.MCP(stdin, stdout, stderr)
 		case "explain":
@@ -136,7 +145,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	// No subcommand or unknown — default to hook mode (matches Claude Code's invocation).
 	if hasNoFlagArgs(args[1:]) {
-		return subcommand.Hook(stdin, stdout, stderr, subcommand.HookOptions{})
+		return subcommand.Hook(stdin, stdout, stderr, subcommand.HookOptions{Cfg: cfg})
 	}
 	// Unknown invocation
 	fmt.Fprintf(stderr, "failsafe: unknown invocation %v\n", args[1:])

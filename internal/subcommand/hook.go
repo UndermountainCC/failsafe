@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/UndermountainCC/failsafe/internal/auditlog"
+	"github.com/UndermountainCC/failsafe/internal/config"
 	embedfs "github.com/UndermountainCC/failsafe/internal/embed"
 	"github.com/UndermountainCC/failsafe/internal/enrich"
 	"github.com/UndermountainCC/failsafe/internal/facts"
@@ -37,9 +38,14 @@ type HookOptions struct {
 	Now          time.Time
 	BundledLoad  func() ([]policy.Module, error)
 	// Logger receives one record per infra-tool decision (and per
-	// refuse/parse block). Nil → resolved from home + FAILSAFE_LOG via
-	// auditlog.DefaultLogger. Logging is best-effort and never fails the hook.
+	// refuse/parse block). Nil → resolved from cfg.Log (or home + FAILSAFE_LOG
+	// when Cfg is nil). Logging is best-effort and never fails the hook.
 	Logger *auditlog.Logger
+	// Cfg is the loaded configuration. Nil → defaults are loaded via
+	// config.Load so there is a single code path regardless of caller.
+	// When non-nil, Cfg drives the mode chain, audit logger, policy paths,
+	// tools dir, and trust path instead of hardcoded literals.
+	Cfg *config.Config
 }
 
 // Hook is the default subcommand: read Claude Code hook JSON, decide, emit.
@@ -58,12 +64,24 @@ func Hook(stdin io.Reader, stdout, stderr io.Writer, opts HookOptions) int {
 		home = os.Getenv("HOME")
 	}
 
+	// Resolve config: use caller-supplied Cfg or load defaults (no config file
+	// → all defaults = today's hardcoded values; fail-closed on a bad file).
+	cfg := opts.Cfg
+	if cfg == nil {
+		loaded, err := config.Load(config.Options{Home: home, Env: os.Getenv})
+		if err != nil {
+			fmt.Fprintf(stderr, "failsafe: load config: %v\n", err)
+			return 1
+		}
+		cfg = loaded
+	}
+
 	// 1. Resolve mode.
 	modeVal := opts.ModeOverride
 	if modeVal == "" {
 		chain := opts.ModeChain
 		if chain == nil {
-			chain = defaultModeChain()
+			chain = buildModeChain(cfg, home)
 		}
 		val, _, err := chain.Resolve(envWithHome(home))
 		if err != nil {
@@ -78,7 +96,7 @@ func Hook(stdin io.Reader, stdout, stderr io.Writer, opts HookOptions) int {
 	// Logging never fails the hook — logRec ignores Log's error.
 	lg := opts.Logger
 	if lg == nil {
-		lg = auditlog.DefaultLogger(home, os.Getenv)
+		lg = loggerFromConfig(cfg)
 	}
 	now := opts.Now
 	if now.IsZero() {
@@ -116,7 +134,7 @@ func Hook(stdin io.Reader, stdout, stderr io.Writer, opts HookOptions) int {
 	}
 
 	// 3. Set up shared inputs: trust file, bundled-policy loader, registry.
-	tr, err := trust.Load(home)
+	tr, err := trust.LoadFromPath(cfg.Trust.Path)
 	if err != nil {
 		fmt.Fprintf(stderr, "failsafe: trust load: %v\n", err)
 		return 1
@@ -125,7 +143,7 @@ func Hook(stdin io.Reader, stdout, stderr io.Writer, opts HookOptions) int {
 	if bundledLoad == nil {
 		bundledLoad = loadBundledPolicies
 	}
-	reg, err := buildRegistry(home)
+	reg, err := buildRegistry(cfg.Policy.ToolsDir)
 	if err != nil {
 		// Fail-closed: a corrupt bundled tool YAML or a malformed user
 		// tool YAML (which would silently bypass policy for that tool's
@@ -145,10 +163,11 @@ func Hook(stdin io.Reader, stdout, stderr io.Writer, opts HookOptions) int {
 			return e, nil
 		}
 		mods, err := policy.Discover(policy.DiscoverOpts{
-			BundledLoader: bundledLoad,
-			Home:          home,
-			CWD:           cwd,
-			IsTrusted:     tr.IsTrusted,
+			BundledLoader:  bundledLoad,
+			Home:           home,
+			CWD:            cwd,
+			UserPolicyPath: cfg.Policy.UserPath,
+			IsTrusted:      tr.IsTrusted,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("policy discovery: %w", err)
@@ -245,6 +264,7 @@ func Hook(stdin io.Reader, stdout, stderr io.Writer, opts HookOptions) int {
 
 // DefaultModeChain returns the same mode chain used by the hook subcommand.
 // Exposed so the toggle and mode subcommands share the chain definition.
+// It uses config defaults (identical to the previous hardcoded values).
 func DefaultModeChain() *mode.Chain { return defaultModeChain() }
 
 // EnvFromOS returns os.Environ() as a map.
@@ -258,23 +278,73 @@ func EnvFromOS() map[string]string {
 	return out
 }
 
+// defaultModeChain returns the chain built from compile-time defaults.
+// Kept for DefaultModeChain() and the toggle/mode subcommands that call it
+// without a config.
 func defaultModeChain() *mode.Chain {
+	cfg, _ := config.Load(config.Options{Home: os.Getenv("HOME"), Env: os.Getenv})
+	if cfg == nil {
+		// Absolute fallback: should never happen (Load only fails on a bad
+		// config file, and an absent file is fine). Return the hardcoded chain.
+		return &mode.Chain{
+			Sources: []mode.Source{
+				mode.EnvSource{Name: "FAILSAFE_MODE"},
+				mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${WEZTERM_PANE}"},
+				mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${TMUX_PANE}"},
+				mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${ITERM_SESSION_ID}"},
+				mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${KITTY_WINDOW_ID}"},
+				mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${CLAUDE_SESSION_ID}"},
+				mode.TTYSource{Dir: "${HOME}/.config/failsafe"},
+				mode.FileSource{Pattern: "${HOME}/.config/failsafe/mode"},
+			},
+			Default: "enabled",
+		}
+	}
+	return buildModeChain(cfg, os.Getenv("HOME"))
+}
+
+// buildModeChain builds the mode.Chain from a loaded *config.Config.
+// home is the resolved home directory (already expanded, no tilde).
+// The source ORDER and kinds are fixed in code; only cfg.Mode.PaneDir and
+// cfg.Mode.Default are driven by config (spec §5 "recorded not driven").
+func buildModeChain(cfg *config.Config, home string) *mode.Chain {
+	paneDir := cfg.Mode.PaneDir
+	// If PaneDir is already an absolute path (expanded by config.Load), use it
+	// directly; otherwise fall back to the ${HOME}-prefixed pattern form so the
+	// mode chain's own ${VAR} expansion still works.
+	paneDirPattern := func(varName string) string {
+		// config.Load expands tildes; paneDir is already absolute.
+		// We still want ${WEZTERM_PANE} etc. resolved by the chain at
+		// resolve-time, so append the variable placeholder.
+		return paneDir + "/${" + varName + "}"
+	}
 	return &mode.Chain{
 		Sources: []mode.Source{
 			mode.EnvSource{Name: "FAILSAFE_MODE"},
-			mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${WEZTERM_PANE}"},
-			mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${TMUX_PANE}"},
-			mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${ITERM_SESSION_ID}"},
-			mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${KITTY_WINDOW_ID}"},
-			mode.FileSource{Pattern: "${HOME}/.claude/pane-mode/${CLAUDE_SESSION_ID}"},
+			mode.FileSource{Pattern: paneDirPattern("WEZTERM_PANE")},
+			mode.FileSource{Pattern: paneDirPattern("TMUX_PANE")},
+			mode.FileSource{Pattern: paneDirPattern("ITERM_SESSION_ID")},
+			mode.FileSource{Pattern: paneDirPattern("KITTY_WINDOW_ID")},
+			mode.FileSource{Pattern: paneDirPattern("CLAUDE_SESSION_ID")},
 			// Per-controlling-tty: gives a plain shell (no multiplexer var) its
 			// own writable mode instead of sharing the single global file.
 			mode.TTYSource{Dir: "${HOME}/.config/failsafe"},
 			// Global last-resort fallback (always writable while HOME is set).
 			mode.FileSource{Pattern: "${HOME}/.config/failsafe/mode"},
 		},
-		Default: "enabled",
+		Default: cfg.Mode.Default,
 	}
+}
+
+// loggerFromConfig builds an *auditlog.Logger from cfg.Log.
+// Mirrors the semantics of auditlog.DefaultLogger:
+//   - Disabled → empty Logger (no-op)
+//   - Enabled with path → file logger at that path
+func loggerFromConfig(cfg *config.Config) *auditlog.Logger {
+	if !cfg.Log.Enabled {
+		return &auditlog.Logger{}
+	}
+	return &auditlog.Logger{Path: cfg.Log.Path}
 }
 
 func envWithHome(home string) map[string]string {
@@ -289,11 +359,12 @@ func envWithHome(home string) map[string]string {
 }
 
 // buildRegistry assembles the tool registry from Go-coded tools (kubectl,
-// helm), bundled YAML tools, and user-provided YAML tools. Errors are
-// fail-closed: a corrupt bundled YAML means the binary is broken, and a
-// malformed user YAML means commands for that tool would silently bypass
+// helm), bundled YAML tools, and user-provided YAML tools. toolsDir is the
+// fully-expanded path to the user tools directory (e.g. from cfg.Policy.ToolsDir).
+// Errors are fail-closed: a corrupt bundled YAML means the binary is broken,
+// and a malformed user YAML means commands for that tool would silently bypass
 // policy. Both must surface to the caller, not be silently skipped.
-func buildRegistry(home string) (*tools.Registry, error) {
+func buildRegistry(toolsDir string) (*tools.Registry, error) {
 	r := tools.NewRegistry()
 	r.Add(tools.NewKubectl())
 	r.Add(tools.NewHelm())
@@ -309,15 +380,14 @@ func buildRegistry(home string) (*tools.Registry, error) {
 		}
 		r.Add(t)
 	}
-	if home != "" {
-		userToolsDir := filepath.Join(home, ".config", "failsafe", "tools")
-		userTools := os.DirFS(userToolsDir)
+	if toolsDir != "" {
+		userTools := os.DirFS(toolsDir)
 		entries, err := fs.ReadDir(userTools, ".")
 		// fs.ReadDir on a nonexistent dir returns an error — that's the
 		// common case (no user tools); tolerate it. Other errors propagate.
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return nil, fmt.Errorf("read user tools dir %s: %w", userToolsDir, err)
+				return nil, fmt.Errorf("read user tools dir %s: %w", toolsDir, err)
 			}
 			return r, nil
 		}
