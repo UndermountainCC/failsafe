@@ -342,6 +342,81 @@ func TestTildeExpansionFromFile(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Regression: multi-word env var keys map to correct koanf fields
+// ---------------------------------------------------------------------------
+
+// TestEnvMultiWordKeysMapCorrectly verifies that env vars whose names contain
+// multiple underscores after the FAILSAFE_ prefix (e.g. FAILSAFE_MODE_PANE_DIR)
+// land in the correct Config field.  Before the static-table fix these vars
+// were silently ignored because the mechanical _→. transform produced invalid
+// koanf keys (e.g. "mode.pane.dir" instead of "mode.pane_dir").
+func TestEnvMultiWordKeysMapCorrectly(t *testing.T) {
+	home := t.TempDir()
+
+	env := homeEnv(home, map[string]string{
+		"FAILSAFE_MODE_PANE_DIR":           "/custom/pane-mode",
+		"FAILSAFE_POLICY_USER_PATH":         "/custom/policy.rego",
+		"FAILSAFE_POLICY_TOOLS_DIR":         "/custom/tools",
+		"FAILSAFE_TELEMETRY_OTLP_ENDPOINT":  "http://otel.example.com:4318",
+	})
+
+	cfg := mustLoad(t, Options{Home: home, Env: env})
+
+	if cfg.Mode.PaneDir != "/custom/pane-mode" {
+		t.Errorf("FAILSAFE_MODE_PANE_DIR: want /custom/pane-mode, got %q", cfg.Mode.PaneDir)
+	}
+	if cfg.Policy.UserPath != "/custom/policy.rego" {
+		t.Errorf("FAILSAFE_POLICY_USER_PATH: want /custom/policy.rego, got %q", cfg.Policy.UserPath)
+	}
+	if cfg.Policy.ToolsDir != "/custom/tools" {
+		t.Errorf("FAILSAFE_POLICY_TOOLS_DIR: want /custom/tools, got %q", cfg.Policy.ToolsDir)
+	}
+	if cfg.Telemetry.OTLPEndpoint != "http://otel.example.com:4318" {
+		t.Errorf("FAILSAFE_TELEMETRY_OTLP_ENDPOINT: want http://otel.example.com:4318, got %q", cfg.Telemetry.OTLPEndpoint)
+	}
+}
+
+// TestFAILSAFEModeNotLeakedToConfig asserts that FAILSAFE_MODE is intentionally
+// excluded from the config key table and does NOT populate any Config field.
+// It lives as EnvSource{Name:"FAILSAFE_MODE"} in the mode chain only.
+func TestFAILSAFEModeNotLeakedToConfig(t *testing.T) {
+	home := t.TempDir()
+
+	env := homeEnv(home, map[string]string{
+		"FAILSAFE_MODE": "disabled",
+	})
+
+	cfg := mustLoad(t, Options{Home: home, Env: env})
+
+	// FAILSAFE_MODE must not have set any Config field.  The only observable
+	// effect would be a non-default Mode.PaneDir or a new field under Mode — we
+	// check the pane_dir default is undisturbed and that no string field in the
+	// entire Config unexpectedly holds the value "disabled".
+	defaultPaneDir := home + "/.claude/pane-mode"
+	if cfg.Mode.PaneDir != defaultPaneDir {
+		t.Errorf("FAILSAFE_MODE leaked into Mode.PaneDir: got %q", cfg.Mode.PaneDir)
+	}
+
+	// Spot-check: "disabled" must not appear in any string field.
+	stringFields := []struct {
+		name string
+		val  string
+	}{
+		{"Mode.PaneDir", cfg.Mode.PaneDir},
+		{"Log.Path", cfg.Log.Path},
+		{"Policy.UserPath", cfg.Policy.UserPath},
+		{"Policy.ToolsDir", cfg.Policy.ToolsDir},
+		{"Trust.Path", cfg.Trust.Path},
+		{"Telemetry.OTLPEndpoint", cfg.Telemetry.OTLPEndpoint},
+	}
+	for _, f := range stringFields {
+		if f.val == "disabled" {
+			t.Errorf("FAILSAFE_MODE leaked into Config.%s = %q", f.name, f.val)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

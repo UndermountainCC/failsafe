@@ -219,15 +219,32 @@ func Load(opts Options) (*Config, error) {
 // Env transform (FAILSAFE_ → koanf keys)
 // ---------------------------------------------------------------------------
 
-// envTransform converts a FAILSAFE_* env key to the matching koanf key.
-// E.g. FAILSAFE_LOG_PATH → log.path.
-// Keys that do not match the schema simply pass through lowercased; koanf
-// ignores unknown keys during Unmarshal.
+// envKeyTable is a static mapping from each supported FAILSAFE_* env var name
+// to its exact koanf dot-path key.  Using a lookup table instead of a
+// mechanical _→. replacement avoids mangling multi-word field names such as
+// FAILSAFE_MODE_PANE_DIR (which must map to "mode.pane_dir", not
+// "mode.pane.dir").
+//
+// Exclusions (intentional):
+//   - FAILSAFE_MODE: handled by the mode chain's EnvSource, not a config field.
+//   - FAILSAFE_LOG: handled by the back-compat shim (buildEnvShims).
+var envKeyTable = map[string]string{
+	"FAILSAFE_MODE_PANE_DIR":            "mode.pane_dir",
+	"FAILSAFE_LOG_ENABLED":              "log.enabled",
+	"FAILSAFE_LOG_PATH":                 "log.path",
+	"FAILSAFE_LOG_REDACT":               "log.redact",
+	"FAILSAFE_TELEMETRY_ENABLED":        "telemetry.enabled",
+	"FAILSAFE_TELEMETRY_OTLP_ENDPOINT":  "telemetry.otlp_endpoint",
+	"FAILSAFE_POLICY_USER_PATH":         "policy.user_path",
+	"FAILSAFE_POLICY_TOOLS_DIR":         "policy.tools_dir",
+	"FAILSAFE_TRUST_PATH":               "trust.path",
+}
+
+// envTransform converts a FAILSAFE_* env key to the matching koanf key using
+// the static envKeyTable.  Returns "" for unrecognised keys so the caller can
+// skip them cleanly.
 func envTransform(s string) string {
-	s = strings.TrimPrefix(s, "FAILSAFE_")
-	s = strings.ToLower(s)
-	s = strings.ReplaceAll(s, "_", ".")
-	return s
+	return envKeyTable[s]
 }
 
 // ---------------------------------------------------------------------------
@@ -344,7 +361,7 @@ func (e *injectableEnvProvider) Read() (map[string]interface{}, error) {
 	// Also check any keys that opts.Env knows about but os.Environ might not
 	// (the injected env may be a pure stub with no real os.Environ backing).
 	// We scan a known set of FAILSAFE_ keys so we don't miss stub-only vars.
-	for _, rawKey := range knownEnvKeys {
+	for _, rawKey := range knownEnvKeysList() {
 		if !strings.HasPrefix(rawKey, e.prefix) {
 			continue
 		}
@@ -363,20 +380,15 @@ func (e *injectableEnvProvider) Read() (map[string]interface{}, error) {
 }
 
 // knownEnvKeys is the canonical list of FAILSAFE_* env var names supported in
-// v1.  This list is used by injectableEnvProvider to ensure stub envs (used in
-// tests) are fully read even when os.Environ does not contain these keys.
-// Note: FAILSAFE_MODE_DEFAULT is intentionally absent — there is no mode.default
-// config key (the chain default is hardcoded to "enabled").
-var knownEnvKeys = []string{
-	"FAILSAFE_MODE_PANE_DIR",
-	"FAILSAFE_LOG_ENABLED",
-	"FAILSAFE_LOG_PATH",
-	"FAILSAFE_LOG_REDACT",
-	"FAILSAFE_TELEMETRY_ENABLED",
-	"FAILSAFE_TELEMETRY_OTLP_ENDPOINT",
-	"FAILSAFE_POLICY_USER_PATH",
-	"FAILSAFE_POLICY_TOOLS_DIR",
-	"FAILSAFE_TRUST_PATH",
+// v1.  Derived from envKeyTable so it stays in sync automatically.
+// Used by injectableEnvProvider to ensure stub envs (used in tests) are fully
+// read even when os.Environ does not contain these keys.
+func knownEnvKeysList() []string {
+	keys := make([]string, 0, len(envKeyTable))
+	for k := range envKeyTable {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // ---------------------------------------------------------------------------
