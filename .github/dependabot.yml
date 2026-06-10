@@ -1,0 +1,52 @@
+# Dependabot — keep Go modules, GitHub Actions, and the docs toolchain current.
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates
+version: 2
+updates:
+  # Go modules (root go.mod / go.sum)
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - go
+    commit-message:
+      prefix: deps
+    groups:
+      go-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions referenced by .github/workflows/*
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Docs site toolchain (mkdocs-material) — docs/requirements.txt
+  - package-ecosystem: pip
+    directory: "/docs"
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - docs
+    commit-message:
+      prefix: docs
+    groups:
+      docs-minor-patch:
+        update-types:
+          - minor
+          - patch
