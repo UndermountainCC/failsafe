@@ -170,6 +170,7 @@ func scariness(r auditlog.Record) int {
 type countRow struct {
 	Tool     string `json:"tool"`
 	Verb     string `json:"verb"`
+	Subverb  string `json:"subverb,omitempty"`
 	Decision string `json:"decision"`
 	Count    int    `json:"count"`
 }
@@ -195,15 +196,15 @@ type report struct {
 const scariestN = 5
 
 func buildReport(since string, recs []auditlog.Record) report {
-	// Aggregate by tool+verb+decision.
-	type key struct{ tool, verb, decision string }
+	// Aggregate by tool+verb+subverb+decision.
+	type key struct{ tool, verb, subverb, decision string }
 	tally := map[key]int{}
 	for _, r := range recs {
-		tally[key{r.Tool, r.Verb, r.Decision}]++
+		tally[key{r.Tool, r.Verb, r.Subverb, r.Decision}]++
 	}
 	counts := make([]countRow, 0, len(tally))
 	for k, n := range tally {
-		counts = append(counts, countRow{Tool: k.tool, Verb: k.verb, Decision: k.decision, Count: n})
+		counts = append(counts, countRow{Tool: k.tool, Verb: k.verb, Subverb: k.subverb, Decision: k.decision, Count: n})
 	}
 	// Deterministic order: most frequent first, then alphabetical for stable ties.
 	sort.Slice(counts, func(i, j int) bool {
@@ -215,6 +216,9 @@ func buildReport(since string, recs []auditlog.Record) report {
 		}
 		if counts[i].Verb != counts[j].Verb {
 			return counts[i].Verb < counts[j].Verb
+		}
+		if counts[i].Subverb != counts[j].Subverb {
+			return counts[i].Subverb < counts[j].Subverb
 		}
 		return counts[i].Decision < counts[j].Decision
 	})
@@ -264,10 +268,10 @@ func renderMarkdown(out io.Writer, rep report) int {
 	}
 
 	fmt.Fprintf(out, "## Counts by tool / verb / decision\n\n")
-	fmt.Fprintln(out, "| Tool | Verb | Decision | Count |")
-	fmt.Fprintln(out, "|------|------|----------|-------|")
+	fmt.Fprintln(out, "| Tool | Verb | Subverb | Decision | Count |")
+	fmt.Fprintln(out, "|------|------|---------|----------|-------|")
 	for _, c := range rep.Counts {
-		fmt.Fprintf(out, "| %s | %s | %s | %d |\n", c.Tool, c.Verb, c.Decision, c.Count)
+		fmt.Fprintf(out, "| %s | %s | %s | %s | %d |\n", c.Tool, c.Verb, c.Subverb, c.Decision, c.Count)
 	}
 
 	if len(rep.Scariest) > 0 {

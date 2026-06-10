@@ -210,3 +210,103 @@ func TestReport_NoShareKeepsRawValues(t *testing.T) {
 		t.Errorf("local report should keep raw cwd; got:\n%s", buf.String())
 	}
 }
+
+// TestReport_SubverbColumnBreaksDownRefusalKinds verifies that shell-parser refusals
+// with different subverbs (e.g. glob vs heredoc) produce distinct rows in the report
+// and that a normal tool row (git/commit) still renders correctly with an empty Subverb.
+func TestReport_SubverbColumnBreaksDownRefusalKinds(t *testing.T) {
+	log := writeLog(t,
+		// Two distinct shell/unanalyzable refusals: glob and heredoc
+		`{"ts":"2026-05-30T11:00:00Z","decision":"block","tool":"shell","verb":"unanalyzable","subverb":"glob","session":{"agent_session_id":"s"}}`,
+		`{"ts":"2026-05-30T11:01:00Z","decision":"block","tool":"shell","verb":"unanalyzable","subverb":"heredoc","session":{"agent_session_id":"s"}}`,
+		// A normal tool row with no subverb
+		`{"ts":"2026-05-30T11:02:00Z","decision":"allow","tool":"git","verb":"commit","session":{"agent_session_id":"s"}}`,
+	)
+	env := runReportJSON(t, log)
+	if env.Total != 3 {
+		t.Fatalf("total = %d, want 3", env.Total)
+	}
+
+	// Build a map of (tool,verb,decision) → rows to make lookup easy.
+	type rowKey struct{ tool, verb, decision string }
+	// We need to capture subverb too; use a local struct for richer lookup.
+	type fullRow struct {
+		Tool, Verb, Subverb, Decision string
+		Count                         int
+	}
+	// Re-run with JSON to get subverb column.
+	var rawBuf bytes.Buffer
+	args := []string{"--format", "json"}
+	code := Report(args, &rawBuf, ReportOptions{Home: "/Users/you", LogPath: log, Now: fixedNow})
+	if code != 0 {
+		t.Fatalf("Report exit=%d, out=%s", code, rawBuf.String())
+	}
+	// Decode with a richer struct that includes Subverb.
+	var richEnv struct {
+		Counts []struct {
+			Tool     string `json:"tool"`
+			Verb     string `json:"verb"`
+			Subverb  string `json:"subverb"`
+			Decision string `json:"decision"`
+			Count    int    `json:"count"`
+		} `json:"counts"`
+	}
+	if err := json.Unmarshal(rawBuf.Bytes(), &richEnv); err != nil {
+		t.Fatalf("json decode: %v\noutput: %s", err, rawBuf.String())
+	}
+
+	// We expect three distinct rows (glob block, heredoc block, git/commit allow).
+	if len(richEnv.Counts) != 3 {
+		t.Fatalf("expected 3 distinct count rows (glob+heredoc refusals + git/commit), got %d: %+v", len(richEnv.Counts), richEnv.Counts)
+	}
+
+	var sawGlob, sawHeredoc, sawGitCommit bool
+	for _, c := range richEnv.Counts {
+		switch {
+		case c.Tool == "shell" && c.Verb == "unanalyzable" && c.Subverb == "glob" && c.Decision == "block":
+			sawGlob = true
+			if c.Count != 1 {
+				t.Errorf("glob block count = %d, want 1", c.Count)
+			}
+		case c.Tool == "shell" && c.Verb == "unanalyzable" && c.Subverb == "heredoc" && c.Decision == "block":
+			sawHeredoc = true
+			if c.Count != 1 {
+				t.Errorf("heredoc block count = %d, want 1", c.Count)
+			}
+		case c.Tool == "git" && c.Verb == "commit" && c.Decision == "allow":
+			sawGitCommit = true
+			if c.Subverb != "" {
+				t.Errorf("git/commit subverb = %q, want empty", c.Subverb)
+			}
+		}
+	}
+	if !sawGlob {
+		t.Errorf("missing shell/unanalyzable/glob/block row; counts: %+v", richEnv.Counts)
+	}
+	if !sawHeredoc {
+		t.Errorf("missing shell/unanalyzable/heredoc/block row; counts: %+v", richEnv.Counts)
+	}
+	if !sawGitCommit {
+		t.Errorf("missing git/commit/allow row; counts: %+v", richEnv.Counts)
+	}
+}
+
+// TestReport_MarkdownSubverbColumn checks that the markdown table header and rows
+// include the Subverb column.
+func TestReport_MarkdownSubverbColumn(t *testing.T) {
+	log := writeLog(t,
+		`{"ts":"2026-05-30T11:00:00Z","decision":"block","tool":"shell","verb":"unanalyzable","subverb":"glob","session":{"agent_session_id":"s"}}`,
+		`{"ts":"2026-05-30T11:01:00Z","decision":"allow","tool":"git","verb":"commit","session":{"agent_session_id":"s"}}`,
+	)
+	var buf bytes.Buffer
+	if code := Report(nil, &buf, ReportOptions{Home: "/Users/you", LogPath: log, Now: fixedNow}); code != 0 {
+		t.Fatalf("exit=%d", code)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Subverb") {
+		t.Errorf("markdown table should contain Subverb column header; got:\n%s", out)
+	}
+	if !strings.Contains(out, "glob") {
+		t.Errorf("markdown table should contain 'glob' subverb value; got:\n%s", out)
+	}
+}

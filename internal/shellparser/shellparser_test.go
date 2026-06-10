@@ -10,12 +10,12 @@ import (
 )
 
 func TestExtract_Plain(t *testing.T) {
-	calls, refuse, err := Extract("kubectl get pods")
+	calls, refusal, err := Extract("kubectl get pods")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if refuse != "" {
-		t.Errorf("unexpected refuse: %s", refuse)
+	if refusal != nil {
+		t.Errorf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Errorf("calls = %+v", calls)
@@ -63,9 +63,9 @@ func TestExtract_Pipe(t *testing.T) {
 }
 
 func TestExtract_UnwrapShDashC(t *testing.T) {
-	calls, refuse, _ := Extract(`sh -c "kubectl apply -f x.yaml"`)
-	if refuse != "" {
-		t.Errorf("should unwrap sh -c, got refuse: %s", refuse)
+	calls, refusal, _ := Extract(`sh -c "kubectl apply -f x.yaml"`)
+	if refusal != nil {
+		t.Errorf("should unwrap sh -c, got refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Errorf("expected unwrapped kubectl call, got %+v", calls)
@@ -73,8 +73,8 @@ func TestExtract_UnwrapShDashC(t *testing.T) {
 }
 
 func TestExtract_RefuseBashLc(t *testing.T) {
-	_, refuse, _ := Extract(`bash -lc 'kubectl --context arn get pods'`)
-	if refuse == "" {
+	_, refusal, _ := Extract(`bash -lc 'kubectl --context arn get pods'`)
+	if refusal == nil {
 		t.Errorf("expected refuse on bash -lc form")
 	}
 }
@@ -90,9 +90,9 @@ func TestExtract_UnwrapEnv(t *testing.T) {
 }
 
 func TestExtract_RefuseSubshell(t *testing.T) {
-	_, refuse, _ := Extract("(kubectl apply -f x.yaml)")
-	if !strings.Contains(refuse, "subshell") {
-		t.Errorf("expected subshell refuse, got %q", refuse)
+	_, refusal, _ := Extract("(kubectl apply -f x.yaml)")
+	if refusal == nil || !strings.Contains(refusal.Message, "subshell") {
+		t.Errorf("expected subshell refuse, got %v", refusal)
 	}
 }
 
@@ -101,9 +101,9 @@ func TestExtract_CommandSubstNonHeadEmitsPlaceholder(t *testing.T) {
 	// walker emits a placeholder for non-head dynamic args; the bundled
 	// policy then blocks `kubectl apply -f <dynamic>` because verb=apply
 	// is not in read_verbs and allowed_dry_run requires a literal flag.
-	calls, refuse, _ := Extract(`kubectl apply -f $(echo x.yaml)`)
-	if refuse != "" {
-		t.Fatalf("expected no walker refuse for non-head $(...); got: %s", refuse)
+	calls, refusal, _ := Extract(`kubectl apply -f $(echo x.yaml)`)
+	if refusal != nil {
+		t.Fatalf("expected no walker refuse for non-head $(...); got: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Fatalf("expected one kubectl call, got %+v", calls)
@@ -116,8 +116,8 @@ func TestExtract_CommandSubstNonHeadEmitsPlaceholder(t *testing.T) {
 }
 
 func TestExtract_DynamicHeadStillRefuses(t *testing.T) {
-	_, refuse, _ := Extract(`$(echo kubectl) apply`)
-	if refuse == "" {
+	_, refusal, _ := Extract(`$(echo kubectl) apply`)
+	if refusal == nil {
 		t.Errorf("expected refuse for dynamic head — head must be statically known")
 	}
 }
@@ -126,9 +126,9 @@ func TestExtract_GhPRCreateAcceptsDynamicBody(t *testing.T) {
 	// The real-world unblocking case: `gh pr create --body "$(cat ...)"` is
 	// the standard PR-creation pattern. gh isn't an infra tool, so the
 	// registry skips it and the command runs.
-	calls, refuse, _ := Extract(`gh pr create --title "X" --body "$(cat body.md)"`)
-	if refuse != "" {
-		t.Fatalf("expected no refuse for gh + dynamic body; got: %s", refuse)
+	calls, refusal, _ := Extract(`gh pr create --title "X" --body "$(cat body.md)"`)
+	if refusal != nil {
+		t.Fatalf("expected no refuse for gh + dynamic body; got: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "gh" {
 		t.Fatalf("expected one gh call, got %+v", calls)
@@ -149,9 +149,9 @@ func TestExtract_DynamicVerbEmitsPlaceholder(t *testing.T) {
 	// `kubectl $(echo apply)` — head is static (kubectl), but the verb
 	// position is dynamic. Walker emits with placeholder; bundled policy
 	// blocks because the placeholder is not in read_verbs.
-	calls, refuse, _ := Extract(`kubectl $(echo apply)`)
-	if refuse != "" {
-		t.Fatalf("expected no walker refuse; got: %s", refuse)
+	calls, refusal, _ := Extract(`kubectl $(echo apply)`)
+	if refusal != nil {
+		t.Fatalf("expected no walker refuse; got: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Fatalf("expected kubectl call, got %+v", calls)
@@ -162,15 +162,15 @@ func TestExtract_DynamicVerbEmitsPlaceholder(t *testing.T) {
 }
 
 func TestExtract_RefuseEval(t *testing.T) {
-	_, refuse, _ := Extract(`eval "kubectl apply"`)
-	if refuse == "" {
+	_, refusal, _ := Extract(`eval "kubectl apply"`)
+	if refusal == nil {
 		t.Errorf("expected refuse for eval")
 	}
 }
 
 func TestExtract_RefuseUnknownWrapperDashC(t *testing.T) {
-	_, refuse, _ := Extract(`zsh -c "kubectl apply"`)
-	if refuse == "" {
+	_, refusal, _ := Extract(`zsh -c "kubectl apply"`)
+	if refusal == nil {
 		t.Errorf("expected refuse for unknown wrapper -c form")
 	}
 	for _, cmd := range []string{
@@ -179,7 +179,7 @@ func TestExtract_RefuseUnknownWrapperDashC(t *testing.T) {
 		`/usr/local/bin/zsh -c "kubectl apply"`,
 	} {
 		_, r, _ := Extract(cmd)
-		if r == "" {
+		if r == nil {
 			t.Errorf("expected refuse for %q", cmd)
 		}
 	}
@@ -192,9 +192,9 @@ func TestExtract_NonShellDashCNotRefused(t *testing.T) {
 		`cc -c file.c`,
 		`gcc -c -o file.o file.c`,
 	} {
-		calls, refuse, _ := Extract(cmd)
-		if refuse != "" {
-			t.Errorf("did not expect refuse for %q; got: %s", cmd, refuse)
+		calls, refusal, _ := Extract(cmd)
+		if refusal != nil {
+			t.Errorf("did not expect refuse for %q; got: %s", cmd, refusal.Message)
 		}
 		if len(calls) == 0 {
 			t.Errorf("expected at least one call for %q", cmd)
@@ -203,9 +203,9 @@ func TestExtract_NonShellDashCNotRefused(t *testing.T) {
 }
 
 func TestExtract_MultiCDChain(t *testing.T) {
-	calls, refuse, _ := Extract("cd /abs && cd ./rel && kubectl get pods")
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract("cd /abs && cd ./rel && kubectl get pods")
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Cwd != "/abs/rel" {
 		t.Errorf("expected one call with Cwd=/abs/rel, got %+v", calls)
@@ -213,9 +213,9 @@ func TestExtract_MultiCDChain(t *testing.T) {
 }
 
 func TestExtract_CDPropagatesCwd(t *testing.T) {
-	calls, refuse, _ := Extract("cd /tmp/x && kubectl get pods")
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract("cd /tmp/x && kubectl get pods")
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Fatalf("expected one kubectl call, got %+v", calls)
@@ -226,9 +226,9 @@ func TestExtract_CDPropagatesCwd(t *testing.T) {
 }
 
 func TestExtract_CDSemicolonEmitsUncertainCwd(t *testing.T) {
-	calls, refuse, _ := Extract("cd /tmp/y; kubectl get pods")
-	if refuse != "" {
-		t.Fatalf("unexpected walker refuse: %s", refuse)
+	calls, refusal, _ := Extract("cd /tmp/y; kubectl get pods")
+	if refusal != nil {
+		t.Fatalf("unexpected walker refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 call (kubectl), got %+v", calls)
@@ -239,9 +239,9 @@ func TestExtract_CDSemicolonEmitsUncertainCwd(t *testing.T) {
 }
 
 func TestExtract_CDOrOpEmitsUncertainCwd(t *testing.T) {
-	calls, refuse, _ := Extract("cd /missing || kubectl get pods")
-	if refuse != "" {
-		t.Fatalf("unexpected walker refuse: %s", refuse)
+	calls, refusal, _ := Extract("cd /missing || kubectl get pods")
+	if refusal != nil {
+		t.Fatalf("unexpected walker refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 call (kubectl), got %+v", calls)
@@ -252,16 +252,16 @@ func TestExtract_CDOrOpEmitsUncertainCwd(t *testing.T) {
 }
 
 func TestExtract_CDStandaloneOK(t *testing.T) {
-	_, refuse, _ := Extract("cd /tmp")
-	if refuse != "" {
-		t.Errorf("unexpected refuse on standalone cd: %s", refuse)
+	_, refusal, _ := Extract("cd /tmp")
+	if refusal != nil {
+		t.Errorf("unexpected refuse on standalone cd: %s", refusal.Message)
 	}
 }
 
 func TestExtract_CallBeforeCDIsFine(t *testing.T) {
-	calls, refuse, _ := Extract("kubectl get && cd /tmp")
-	if refuse != "" {
-		t.Errorf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract("kubectl get && cd /tmp")
+	if refusal != nil {
+		t.Errorf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Errorf("expected one kubectl call, got %+v", calls)
@@ -274,9 +274,9 @@ func TestExtract_CDInANDLeakingPastBoundaryEmitsUncertainCwd(t *testing.T) {
 		`cd /repo && do-something; kubectl apply`,
 		`cd /a && cd /b; kubectl get`,
 	} {
-		calls, refuse, _ := Extract(cmd)
-		if refuse != "" {
-			t.Errorf("unexpected walker refuse for %q: %s", cmd, refuse)
+		calls, refusal, _ := Extract(cmd)
+		if refusal != nil {
+			t.Errorf("unexpected walker refuse for %q: %s", cmd, refusal.Message)
 			continue
 		}
 		// The trailing call (kubectl) must be emitted with UncertainCwd=true
@@ -299,9 +299,9 @@ func TestExtract_CDInANDLeakingPastBoundaryEmitsUncertainCwd(t *testing.T) {
 }
 
 func TestExtract_CDInBashDashCLeakingPastBoundaryEmitsUncertainCwd(t *testing.T) {
-	calls, refuse, _ := Extract(`bash -c 'cd /missing && true; kubectl apply -f x.yaml'`)
-	if refuse != "" {
-		t.Fatalf("unexpected walker refuse: %s", refuse)
+	calls, refusal, _ := Extract(`bash -c 'cd /missing && true; kubectl apply -f x.yaml'`)
+	if refusal != nil {
+		t.Fatalf("unexpected walker refuse: %s", refusal.Message)
 	}
 	var trailing *EffectiveCall
 	for i := range calls {
@@ -321,9 +321,9 @@ func TestExtract_TerraformCheckThenSemicolonEcho_AllowsEcho(t *testing.T) {
 	// Real-world case: `cd /repo && terraform fmt 2>&1; echo $?` —
 	// walker emits both calls, terraform without UncertainCwd (cd's
 	// RHS in AndStmt is reliable), echo with UncertainCwd=true.
-	calls, refuse, _ := Extract(`cd /repo && terraform fmt 2>&1; echo done`)
-	if refuse != "" {
-		t.Fatalf("expected no walker refuse; got: %s", refuse)
+	calls, refusal, _ := Extract(`cd /repo && terraform fmt 2>&1; echo done`)
+	if refusal != nil {
+		t.Fatalf("expected no walker refuse; got: %s", refusal.Message)
 	}
 	// Two calls expected: terraform (cwd=/repo, UncertainCwd=false)
 	// and echo (UncertainCwd=true, cwd=whatever the walker tracked).
@@ -352,9 +352,9 @@ func TestExtract_TerraformCheckThenSemicolonEcho_AllowsEcho(t *testing.T) {
 }
 
 func TestExtract_AndStmtCDStillSafeForItsOwnRHS(t *testing.T) {
-	calls, refuse, _ := Extract("cd /repo && kubectl get pods")
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract("cd /repo && kubectl get pods")
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Cwd != "/repo" {
 		t.Errorf("expected kubectl with Cwd=/repo, got %+v", calls)
@@ -362,9 +362,9 @@ func TestExtract_AndStmtCDStillSafeForItsOwnRHS(t *testing.T) {
 }
 
 func TestExtract_AndStmtCDInAllowsTrailingNonCallCommand(t *testing.T) {
-	_, refuse, _ := Extract("cd /tmp && true")
-	if refuse != "" {
-		t.Errorf("standalone cd-and-true should not refuse: %s", refuse)
+	_, refusal, _ := Extract("cd /tmp && true")
+	if refusal != nil {
+		t.Errorf("standalone cd-and-true should not refuse: %s", refusal.Message)
 	}
 }
 
@@ -377,17 +377,17 @@ func TestExtract_RefuseUnquotedGlob(t *testing.T) {
 		`kubectl apply -f {a,b}.yaml`,
 		`rm -rf /tmp/*`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (unquoted glob)", cmd)
 		}
 	}
 }
 
 func TestExtract_QuotedGlobIsLiteral(t *testing.T) {
-	calls, refuse, _ := Extract(`kubectl apply -f '*.yaml'`)
-	if refuse != "" {
-		t.Fatalf("quoted glob should NOT refuse: %s", refuse)
+	calls, refusal, _ := Extract(`kubectl apply -f '*.yaml'`)
+	if refusal != nil {
+		t.Fatalf("quoted glob should NOT refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Args[len(calls[0].Args)-1] != "*.yaml" {
 		t.Errorf("expected literal *.yaml in args, got %+v", calls)
@@ -399,17 +399,17 @@ func TestExtract_RefuseUnquotedLeadingTilde(t *testing.T) {
 		`kubectl apply -f ~/manifests.yaml`,
 		`cat ~someuser/file`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (unquoted leading tilde)", cmd)
 		}
 	}
 }
 
 func TestExtract_TildeInMiddleIsLiteral(t *testing.T) {
-	calls, refuse, _ := Extract(`echo file~backup`)
-	if refuse != "" {
-		t.Errorf("mid-word tilde should not refuse: %s", refuse)
+	calls, refusal, _ := Extract(`echo file~backup`)
+	if refusal != nil {
+		t.Errorf("mid-word tilde should not refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 {
 		t.Errorf("calls = %+v", calls)
@@ -422,17 +422,17 @@ func TestExtract_RefuseInputRedirection(t *testing.T) {
 		`cat < /etc/passwd`,
 		`kubectl apply -f - <<< "$(cat prod.yaml)"`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (input redirection)", cmd)
 		}
 	}
 }
 
 func TestExtract_OutputRedirectionAllowed(t *testing.T) {
-	calls, refuse, _ := Extract(`kubectl get pods > /tmp/out`)
-	if refuse != "" {
-		t.Fatalf("output redirection should not refuse: %s", refuse)
+	calls, refusal, _ := Extract(`kubectl get pods > /tmp/out`)
+	if refusal != nil {
+		t.Fatalf("output redirection should not refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Errorf("expected kubectl call, got %+v", calls)
@@ -445,8 +445,8 @@ func TestExtract_RefuseBlockLevelInputRedirection(t *testing.T) {
 		`{ cd ./repo && kubectl apply -f -; } < prod.yaml`,
 		`{ cat /etc/hosts; } < /dev/null`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (block-level < attached to outer stmt)", cmd)
 		}
 	}
@@ -459,17 +459,17 @@ func TestExtract_RefuseEnvPrefixTildeValue(t *testing.T) {
 		`PATH=/usr/bin:~/bin kubectl get pods`,
 		`env PATH=/usr/bin:~/bin kubectl get pods`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (unquoted ~ in env-prefix value)", cmd)
 		}
 	}
 }
 
 func TestExtract_QuotedTildeInEnvValueOK(t *testing.T) {
-	calls, refuse, _ := Extract(`KUBECONFIG="~/prod" kubectl get pods`)
-	if refuse != "" {
-		t.Errorf("quoted tilde in env value should not refuse: %s", refuse)
+	calls, refusal, _ := Extract(`KUBECONFIG="~/prod" kubectl get pods`)
+	if refusal != nil {
+		t.Errorf("quoted tilde in env value should not refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Env["KUBECONFIG"] != "~/prod" {
 		t.Errorf("expected literal ~/prod in env, got %+v", calls)
@@ -485,24 +485,24 @@ func TestExtract_RefuseCDBareCDDashCDTilde(t *testing.T) {
 		`cd ~/Code && kubectl get pods`,
 		`cd ~user && kubectl get pods`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (statically unknown cd target)", cmd)
 		}
 	}
 }
 
 func TestExtract_RefuseCDBareRelative(t *testing.T) {
-	_, refuse, _ := Extract("cd subdir && kubectl get pods")
-	if refuse == "" {
+	_, refusal, _ := Extract("cd subdir && kubectl get pods")
+	if refusal == nil {
 		t.Errorf("expected refuse on bare-relative cd target")
 	}
 }
 
 func TestExtract_RelativeCDExplicitDotSlashIsFine(t *testing.T) {
-	calls, refuse, _ := Extract("cd ./subdir && kubectl get pods")
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract("cd ./subdir && kubectl get pods")
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 {
 		t.Fatalf("calls = %+v", calls)
@@ -517,23 +517,23 @@ func TestExtract_RefuseCDWithCDPATHEnvPrefix(t *testing.T) {
 		`CDPATH=/evil cd ./repo && kubectl apply -f x.yaml`,
 		`CDPATH=/x:/y cd /abs/path && kubectl apply`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (CDPATH env-prefix)", cmd)
 		}
 	}
 }
 
 func TestExtract_RefuseFunctionDecl(t *testing.T) {
-	_, refuse, _ := Extract(`f() { kubectl apply; }; f`)
-	if refuse == "" {
+	_, refusal, _ := Extract(`f() { kubectl apply; }; f`)
+	if refusal == nil {
 		t.Errorf("expected refuse for function definition")
 	}
 }
 
 func TestExtract_RefuseLoop(t *testing.T) {
-	_, refuse, _ := Extract(`for i in 1 2; do kubectl apply -f $i.yaml; done`)
-	if refuse == "" {
+	_, refusal, _ := Extract(`for i in 1 2; do kubectl apply -f $i.yaml; done`)
+	if refusal == nil {
 		t.Errorf("expected refuse for for loop")
 	}
 }
@@ -559,8 +559,8 @@ func TestExtract_RefuseShellEvalBuiltins(t *testing.T) {
 		`. /tmp/setup.sh`,
 		`exec kubectl apply -f x.yaml`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q", cmd)
 		}
 	}
@@ -568,16 +568,16 @@ func TestExtract_RefuseShellEvalBuiltins(t *testing.T) {
 
 func TestExtract_RefuseHeredoc(t *testing.T) {
 	cmd := "bash <<'EOF'\nkubectl apply -f x.yaml\nEOF\n"
-	_, refuse, _ := Extract(cmd)
-	if refuse == "" {
+	_, refusal, _ := Extract(cmd)
+	if refusal == nil {
 		t.Errorf("expected refuse on heredoc")
 	}
 }
 
 func TestExtract_AbsolutePathBashDashC(t *testing.T) {
-	calls, refuse, _ := Extract(`/bin/bash -c "kubectl apply -f x.yaml"`)
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract(`/bin/bash -c "kubectl apply -f x.yaml"`)
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Errorf("expected unwrapped kubectl call from /bin/bash -c, got %+v", calls)
@@ -585,9 +585,9 @@ func TestExtract_AbsolutePathBashDashC(t *testing.T) {
 }
 
 func TestExtract_AbsolutePathEnv(t *testing.T) {
-	calls, refuse, _ := Extract(`/usr/bin/env kubectl get pods`)
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract(`/usr/bin/env kubectl get pods`)
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Errorf("expected unwrapped kubectl from /usr/bin/env, got %+v", calls)
@@ -602,16 +602,16 @@ func TestExtract_RefuseShWithoutDashC(t *testing.T) {
 		`bash -i`,
 		`sh -- foo bar`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q", cmd)
 		}
 	}
 }
 
 func TestExtract_RefuseShDashCWithExtraArgs(t *testing.T) {
-	_, refuse, _ := Extract(`sh -c "kubectl get pods" myname extra`)
-	if refuse == "" {
+	_, refusal, _ := Extract(`sh -c "kubectl get pods" myname extra`)
+	if refusal == nil {
 		t.Errorf("expected refuse on -c with trailing positional args")
 	}
 }
@@ -622,8 +622,8 @@ func TestExtract_RefuseEnvDashI(t *testing.T) {
 		`env -u PATH kubectl apply`,
 		`env -S "FOO=bar" kubectl apply`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q", cmd)
 		}
 	}
@@ -635,8 +635,8 @@ func TestExtract_RefuseTransparentWrapperWithFlags(t *testing.T) {
 		`time -p kubectl apply -f x.yaml`,
 		`ionice -c 3 kubectl apply -f x.yaml`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q", cmd)
 		}
 	}
@@ -658,9 +658,9 @@ func TestExtract_XargsPeelsBooleanFlags(t *testing.T) {
 		{`echo a | xargs -t -x grep foo`, "grep", "foo"},
 	}
 	for _, tc := range cases {
-		calls, refuse, _ := Extract(tc.cmd)
-		if refuse != "" {
-			t.Errorf("expected no refuse for %q; got: %s", tc.cmd, refuse)
+		calls, refusal, _ := Extract(tc.cmd)
+		if refusal != nil {
+			t.Errorf("expected no refuse for %q; got: %s", tc.cmd, refusal.Message)
 			continue
 		}
 		// Find the inner-command call (skip echo).
@@ -693,29 +693,29 @@ func TestExtract_XargsValueFlagRefuses(t *testing.T) {
 		`xargs --max-args=5 echo`,
 	}
 	for _, cmd := range cases {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for value-taking xargs flag in %q", cmd)
 		}
 	}
 }
 
 func TestExtract_XargsNoCommandRefuses(t *testing.T) {
-	_, refuse, _ := Extract(`xargs`)
-	if refuse == "" {
+	_, refusal, _ := Extract(`xargs`)
+	if refusal == nil {
 		t.Errorf("expected refuse for bare xargs")
 	}
-	_, refuse, _ = Extract(`xargs -0`)
-	if refuse == "" {
+	_, refusal2, _ := Extract(`xargs -0`)
+	if refusal2 == nil {
 		t.Errorf("expected refuse for xargs with only flags, no command")
 	}
 }
 
 func TestExtract_DiskUsageFindXargsDuPipeline(t *testing.T) {
 	cmd := `find /tmp -maxdepth 1 -print0 | xargs -0 du -sh 2>/dev/null | sort -rh | head -40`
-	calls, refuse, _ := Extract(cmd)
-	if refuse != "" {
-		t.Fatalf("expected no refuse for find/xargs/du pipeline; got: %s", refuse)
+	calls, refusal, _ := Extract(cmd)
+	if refusal != nil {
+		t.Fatalf("expected no refuse for find/xargs/du pipeline; got: %s", refusal.Message)
 	}
 	// Should have find, du (from peeled xargs), sort, head — none are infra.
 	names := make([]string, 0, len(calls))
@@ -738,9 +738,9 @@ func TestExtract_DiskUsageFindXargsDuPipeline(t *testing.T) {
 }
 
 func TestExtract_NestedEnvBashDashC(t *testing.T) {
-	calls, refuse, _ := Extract(`env FOO=bar bash -c "kubectl apply -f x.yaml"`)
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract(`env FOO=bar bash -c "kubectl apply -f x.yaml"`)
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Fatalf("expected kubectl, got %+v", calls)
@@ -751,9 +751,9 @@ func TestExtract_NestedEnvBashDashC(t *testing.T) {
 }
 
 func TestExtract_NestedNiceBashDashC(t *testing.T) {
-	calls, refuse, _ := Extract(`nice bash -c "kubectl apply"`)
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract(`nice bash -c "kubectl apply"`)
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Errorf("expected kubectl, got %+v", calls)
@@ -761,9 +761,9 @@ func TestExtract_NestedNiceBashDashC(t *testing.T) {
 }
 
 func TestExtract_DeeplyNestedWrappers(t *testing.T) {
-	calls, refuse, _ := Extract(`env A=1 nice bash -c "kubectl get pods"`)
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract(`env A=1 nice bash -c "kubectl get pods"`)
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Errorf("expected kubectl, got %+v", calls)
@@ -781,8 +781,8 @@ func TestExtract_RefuseBashInteractiveOrLogin(t *testing.T) {
 		`bash --login -c "kubectl apply"`,
 		`bash --interactive -c "kubectl apply"`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (interactive/login sources startup files)", cmd)
 		}
 	}
@@ -794,17 +794,17 @@ func TestExtract_RefuseStartupSourcingEnvVars(t *testing.T) {
 		`ENV=/tmp/setup.sh sh -c "kubectl apply"`,
 		`PROMPT_COMMAND="echo evil" bash -c "kubectl apply"`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q", cmd)
 		}
 	}
 }
 
 func TestExtract_CDInsideBashDashCComposes(t *testing.T) {
-	calls, refuse, _ := Extract(`cd /repo && bash -c 'cd ./sub && kubectl apply'`)
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract(`cd /repo && bash -c 'cd ./sub && kubectl apply'`)
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "kubectl" {
 		t.Fatalf("expected one kubectl call, got %+v", calls)
@@ -831,17 +831,17 @@ func TestExtract_RefuseShellStateBuiltins(t *testing.T) {
 		`pushd /tmp; kubectl apply`,
 		`trap 'echo done' EXIT; kubectl apply`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q", cmd)
 		}
 	}
 }
 
 func TestExtract_BuiltinPeels(t *testing.T) {
-	calls, refuse, _ := Extract(`builtin cat /etc/hosts`)
-	if refuse != "" {
-		t.Fatalf("unexpected refuse: %s", refuse)
+	calls, refusal, _ := Extract(`builtin cat /etc/hosts`)
+	if refusal != nil {
+		t.Fatalf("unexpected refuse: %s", refusal.Message)
 	}
 	if len(calls) != 1 || calls[0].Name != "cat" {
 		t.Errorf("expected cat call after builtin peel, got %+v", calls)
@@ -857,9 +857,80 @@ func TestExtract_BuiltinEscapeRefuses(t *testing.T) {
 		`builtin unset PATH`,
 		`builtin alias k=kubectl`,
 	} {
-		_, refuse, _ := Extract(cmd)
-		if refuse == "" {
+		_, refusal, _ := Extract(cmd)
+		if refusal == nil {
 			t.Errorf("expected refuse for %q (builtin escape via inner eval/state-mutation)", cmd)
+		}
+	}
+}
+
+// TestExtract_RefusalKinds asserts that the machine-readable Kind is set
+// correctly for representative inputs. This is the contract that hook.go
+// uses to populate the Subverb column of the decision log.
+func TestExtract_RefusalKinds(t *testing.T) {
+	cases := []struct {
+		cmd      string
+		wantKind string
+		desc     string
+	}{
+		{
+			cmd:      "bash <<'EOF'\nkubectl apply\nEOF\n",
+			wantKind: "heredoc",
+			desc:     "heredoc redirection",
+		},
+		{
+			cmd:      `for i in 1 2; do kubectl apply; done`,
+			wantKind: "control-flow",
+			desc:     "for loop",
+		},
+		{
+			cmd:      `if true; then kubectl apply; fi`,
+			wantKind: "control-flow",
+			desc:     "if clause",
+		},
+		{
+			cmd:      `kubectl apply -f *.yaml`,
+			wantKind: "glob",
+			desc:     "unquoted glob argument",
+		},
+		{
+			cmd:      `(kubectl apply -f x.yaml)`,
+			wantKind: "subshell",
+			desc:     "subshell",
+		},
+		{
+			cmd:      `$(echo kubectl) apply`,
+			wantKind: "dynamic-head",
+			desc:     "dynamic head",
+		},
+		{
+			cmd:      `kubectl apply &`,
+			wantKind: "background",
+			desc:     "background statement",
+		},
+		{
+			cmd:      `kubectl apply -f - < prod.yaml`,
+			wantKind: "input-redirect",
+			desc:     "input redirection",
+		},
+		{
+			cmd:      `kubectl apply -f - <& 3`,
+			wantKind: "fd-redirect",
+			desc:     "fd-duplicating input redirect",
+		},
+	}
+	for _, tc := range cases {
+		_, refusal, err := Extract(tc.cmd)
+		if err != nil {
+			t.Errorf("%s: unexpected parse error: %v", tc.desc, err)
+			continue
+		}
+		if refusal == nil {
+			t.Errorf("%s: expected refusal, got nil", tc.desc)
+			continue
+		}
+		if refusal.Kind != tc.wantKind {
+			t.Errorf("%s: Kind = %q, want %q (message: %s)", tc.desc, refusal.Kind, tc.wantKind, refusal.Message)
 		}
 	}
 }

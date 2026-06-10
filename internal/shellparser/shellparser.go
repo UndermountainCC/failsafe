@@ -29,6 +29,16 @@ import (
 // anything and there's no policy gate that recovers from that.
 const DynamicMarker = "<dynamic>"
 
+// Refusal holds a machine-readable kind and a human-readable message
+// explaining why the shell walker refused to analyze a command.
+type Refusal struct {
+	// Kind is a machine-readable category, one of: glob, heredoc,
+	// control-flow, dynamic-head, subshell, background, input-redirect,
+	// fd-redirect, env-prefix, assignment, binary-op, wrapper, parse, other.
+	Kind    string
+	Message string
+}
+
 // EffectiveCall is one argv-level invocation extracted from a shell AST.
 type EffectiveCall struct {
 	Name string
@@ -49,29 +59,41 @@ type EffectiveCall struct {
 }
 
 // Extract parses cmd into a shell AST and returns every effective call.
-func Extract(cmd string) (calls []EffectiveCall, refuse string, err error) {
+// If analysis is not possible, refusal is non-nil and contains a machine-readable
+// Kind and human-readable Message; the engine treats any refusal as a block.
+func Extract(cmd string) (calls []EffectiveCall, refusal *Refusal, err error) {
 	parser := syntax.NewParser()
 	file, err := parser.Parse(strings.NewReader(cmd), "")
 	if err != nil {
-		return nil, "", fmt.Errorf("shell parse: %w", err)
+		return nil, nil, fmt.Errorf("shell parse: %w", err)
 	}
 	w := walker{}
 	for _, stmt := range file.Stmts {
 		w.walkStmt(stmt)
 		if w.refuse != "" {
-			return w.calls, w.refuse, nil
+			return w.calls, &Refusal{Kind: w.refuseKind, Message: w.refuse}, nil
 		}
 	}
-	return w.calls, "", nil
+	return w.calls, nil, nil
 }
 
 type walker struct {
 	calls          []EffectiveCall
 	refuse         string
+	refuseKind     string
 	curCwd         string
 	inAndChain     bool
 	cdCount        int
 	sawAmbiguousCd bool
+}
+
+// refuseWith records a refusal with a machine-readable kind. Subsequent calls
+// are no-ops so the first refusal wins (mirrors the existing w.refuse != "" guards).
+func (w *walker) refuseWith(kind, message string) {
+	if w.refuse == "" {
+		w.refuse = message
+		w.refuseKind = kind
+	}
 }
 
 var shellEvalBuiltins = map[string]bool{
@@ -128,19 +150,19 @@ func (w *walker) walkStmt(s *syntax.Stmt) {
 		return
 	}
 	if s.Background || s.Coprocess {
-		w.refuse = "background or coprocess statement"
+		w.refuseWith("background", "background or coprocess statement")
 		return
 	}
 	for _, r := range s.Redirs {
 		switch r.Op {
 		case syntax.Hdoc, syntax.DashHdoc, syntax.WordHdoc:
-			w.refuse = "heredoc redirection (`<<`/`<<-`/`<<<`) not analyzable"
+			w.refuseWith("heredoc", "heredoc redirection (`<<`/`<<-`/`<<<`) not analyzable")
 			return
 		case syntax.RdrIn:
-			w.refuse = "input redirection (`<`) hides the command's actual input from policy"
+			w.refuseWith("input-redirect", "input redirection (`<`) hides the command's actual input from policy")
 			return
 		case syntax.DplIn:
-			w.refuse = "fd-duplicating input redirection (`<&`) not modeled"
+			w.refuseWith("fd-redirect", "fd-duplicating input redirection (`<&`) not modeled")
 			return
 		}
 	}
@@ -172,21 +194,21 @@ func (w *walker) walkCmd(stmt *syntax.Stmt, c syntax.Command) {
 			w.curCwd = previous
 			w.walkStmt(v.Y)
 		default:
-			w.refuse = fmt.Sprintf("unsupported binary op: %v", v.Op)
+			w.refuseWith("binary-op", fmt.Sprintf("unsupported binary op: %v", v.Op))
 		}
 	case *syntax.Subshell:
-		w.refuse = "subshell ( ... ) — side-effect scoping not modeled"
+		w.refuseWith("subshell", "subshell ( ... ) — side-effect scoping not modeled")
 	case *syntax.Block:
 		for _, st := range v.Stmts {
 			w.walkStmt(st)
 		}
 	case *syntax.IfClause, *syntax.WhileClause, *syntax.ForClause,
 		*syntax.CaseClause, *syntax.FuncDecl, *syntax.TestClause:
-		w.refuse = fmt.Sprintf("control-flow construct (%T) not analyzable", v)
+		w.refuseWith("control-flow", fmt.Sprintf("control-flow construct (%T) not analyzable", v))
 	case *syntax.LetClause, *syntax.DeclClause:
-		w.refuse = "declaration/assignment construct not analyzable"
+		w.refuseWith("assignment", "declaration/assignment construct not analyzable")
 	default:
-		w.refuse = fmt.Sprintf("unrecognized command type %T", v)
+		w.refuseWith("parse", fmt.Sprintf("unrecognized command type %T", v))
 	}
 }
 
@@ -204,23 +226,23 @@ func (w *walker) walkCallExpr(stmt *syntax.Stmt, c *syntax.CallExpr) {
 	env := map[string]string{}
 	for _, a := range c.Assigns {
 		if a.Naked || a.Append || a.Index != nil {
-			w.refuse = "non-trivial assignment in command prefix"
+			w.refuseWith("assignment", "non-trivial assignment in command prefix")
 			return
 		}
 		if a.Value == nil {
 			continue
 		}
 		if reason := dangerousUnquoted(a.Value); reason != "" {
-			w.refuse = "env-prefix " + a.Name.Value + ": " + reason
+			w.refuseWith("env-prefix", "env-prefix "+a.Name.Value+": "+reason)
 			return
 		}
 		val, ok := flattenWord(a.Value)
 		if !ok {
-			w.refuse = "dynamic env-prefix value (var expansion / command substitution)"
+			w.refuseWith("env-prefix", "dynamic env-prefix value (var expansion / command substitution)")
 			return
 		}
 		if isStartupSourcingEnvVar(a.Name.Value) {
-			w.refuse = "env-prefix " + a.Name.Value + " can source shell startup files; not analyzable"
+			w.refuseWith("env-prefix", "env-prefix "+a.Name.Value+" can source shell startup files; not analyzable")
 			return
 		}
 		env[a.Name.Value] = val
@@ -233,13 +255,13 @@ func (w *walker) walkCallExpr(stmt *syntax.Stmt, c *syntax.CallExpr) {
 	var flat []string
 	for i, w2 := range c.Args {
 		if reason := dangerousUnquoted(w2); reason != "" {
-			w.refuse = reason
+			w.refuseWith("glob", reason)
 			return
 		}
 		s, ok := flattenWord(w2)
 		if !ok {
 			if i == 0 {
-				w.refuse = "dynamic head (command name from var expansion / command substitution) — head must be statically determinable"
+				w.refuseWith("dynamic-head", "dynamic head (command name from var expansion / command substitution) — head must be statically determinable")
 				return
 			}
 			flat = append(flat, DynamicMarker)
@@ -250,38 +272,38 @@ func (w *walker) walkCallExpr(stmt *syntax.Stmt, c *syntax.CallExpr) {
 
 	for depth := 0; depth < 8; depth++ {
 		if len(flat) == 0 {
-			w.refuse = "wrapper resolved to no command"
+			w.refuseWith("wrapper", "wrapper resolved to no command")
 			return
 		}
 		head := filepath.Base(flat[0])
 
 		if head == "cd" {
 			if len(flat) == 1 {
-				w.refuse = "bare `cd` (resolves to $HOME) — target not statically known"
+				w.refuseWith("other", "bare `cd` (resolves to $HOME) — target not statically known")
 				return
 			}
 			if len(flat) > 2 {
-				w.refuse = "cd with multiple args not supported"
+				w.refuseWith("other", "cd with multiple args not supported")
 				return
 			}
 			target := flat[1]
 			if target == "-" {
-				w.refuse = "`cd -` (resolves to $OLDPWD) — target not statically known"
+				w.refuseWith("other", "`cd -` (resolves to $OLDPWD) — target not statically known")
 				return
 			}
 			if target == "~" || strings.HasPrefix(target, "~") {
-				w.refuse = "`cd ~`/`cd ~user` — tilde expansion not modeled"
+				w.refuseWith("other", "`cd ~`/`cd ~user` — tilde expansion not modeled")
 				return
 			}
 			if cdpath, hasCdpath := env["CDPATH"]; hasCdpath && cdpath != "" {
-				w.refuse = "cd with explicit CDPATH=" + cdpath + " — target resolution depends on $CDPATH and isn't statically determinable"
+				w.refuseWith("env-prefix", "cd with explicit CDPATH="+cdpath+" — target resolution depends on $CDPATH and isn't statically determinable")
 				return
 			}
 			if !filepath.IsAbs(target) &&
 				!strings.HasPrefix(target, "./") &&
 				!strings.HasPrefix(target, "../") &&
 				target != "." && target != ".." {
-				w.refuse = "cd to bare-relative target `" + target + "` — could be $CDPATH-resolved at runtime; use `./" + target + "` or an absolute path"
+				w.refuseWith("other", "cd to bare-relative target `"+target+"` — could be $CDPATH-resolved at runtime; use `./"+target+"` or an absolute path")
 				return
 			}
 			w.cdCount++
@@ -293,19 +315,19 @@ func (w *walker) walkCallExpr(stmt *syntax.Stmt, c *syntax.CallExpr) {
 		}
 
 		if shellEvalBuiltins[head] {
-			w.refuse = head + " — dynamic shell evaluation not analyzable"
+			w.refuseWith("wrapper", head+" — dynamic shell evaluation not analyzable")
 			return
 		}
 		if shellStateBuiltins[head] {
-			w.refuse = head + " — shell state mutation not modeled (refused so policy sees the right environment)"
+			w.refuseWith("wrapper", head+" — shell state mutation not modeled (refused so policy sees the right environment)")
 			return
 		}
 		if blanketRefuseWrappers[head] {
-			w.refuse = head + " wrapper has dynamic semantics; not analyzable"
+			w.refuseWith("wrapper", head+" wrapper has dynamic semantics; not analyzable")
 			return
 		}
 		if isUnknownDashCWrapper(flat) {
-			w.refuse = "unsupported shell wrapper with -c (only sh and bash recognized): " + flat[0]
+			w.refuseWith("wrapper", "unsupported shell wrapper with -c (only sh and bash recognized): "+flat[0])
 			return
 		}
 		if dashCWrappers[head] {
@@ -349,7 +371,7 @@ func (w *walker) walkCallExpr(stmt *syntax.Stmt, c *syntax.CallExpr) {
 		})
 		return
 	}
-	w.refuse = "wrapper nesting too deep"
+	w.refuseWith("wrapper", "wrapper nesting too deep")
 }
 
 func (w *walker) peelEnv(rest []string, env map[string]string) ([]string, map[string]string, bool) {
@@ -360,12 +382,12 @@ func (w *walker) peelEnv(rest []string, env map[string]string) ([]string, map[st
 	for i := 0; i < len(rest); i++ {
 		a := rest[i]
 		if strings.HasPrefix(a, "-") {
-			w.refuse = "env wrapper with options not supported: " + a
+			w.refuseWith("wrapper", "env wrapper with options not supported: "+a)
 			return nil, nil, false
 		}
 		if eq := strings.IndexByte(a, '='); eq > 0 && isEnvName(a[:eq]) {
 			if isStartupSourcingEnvVar(a[:eq]) {
-				w.refuse = "env wrapper sets " + a[:eq] + " which can source shell startup files; not analyzable"
+				w.refuseWith("env-prefix", "env wrapper sets "+a[:eq]+" which can source shell startup files; not analyzable")
 				return nil, nil, false
 			}
 			extraEnv[a[:eq]] = a[eq+1:]
@@ -373,7 +395,7 @@ func (w *walker) peelEnv(rest []string, env map[string]string) ([]string, map[st
 		}
 		return rest[i:], extraEnv, true
 	}
-	w.refuse = "env wrapper with no command"
+	w.refuseWith("wrapper", "env wrapper with no command")
 	return nil, nil, false
 }
 
@@ -395,12 +417,12 @@ func (w *walker) peelXargs(rest []string) ([]string, bool) {
 		// flag we can't safely skip. This also catches `--replace=foo` and
 		// `--max-args=5` because those literal tokens aren't in the allowlist.
 		if !xargsBoolFlags[a] {
-			w.refuse = "xargs flag " + a + " not in safe-peel allowlist (value-taking or unknown)"
+			w.refuseWith("wrapper", "xargs flag "+a+" not in safe-peel allowlist (value-taking or unknown)")
 			return nil, false
 		}
 	}
 	if i >= len(rest) {
-		w.refuse = "xargs with no inner command"
+		w.refuseWith("wrapper", "xargs with no inner command")
 		return nil, false
 	}
 	// Append a placeholder for stdin-fed args. If xargs is invoked with
@@ -416,12 +438,12 @@ func (w *walker) peelTransparent(name string, rest []string) ([]string, bool) {
 	for j := 0; j < len(rest); j++ {
 		a := rest[j]
 		if strings.HasPrefix(a, "-") {
-			w.refuse = name + " wrapper with options not supported (got flag: " + a + ")"
+			w.refuseWith("wrapper", name+" wrapper with options not supported (got flag: "+a+")")
 			return nil, false
 		}
 		return rest[j:], true
 	}
-	w.refuse = name + " wrapper with no command"
+	w.refuseWith("wrapper", name+" wrapper with no command")
 	return nil, false
 }
 
@@ -430,21 +452,21 @@ func (w *walker) unwrapDashC(stmt *syntax.Stmt, head string, rest []string, env 
 		a := rest[i]
 		if a == "-c" {
 			if i+1 >= len(rest) {
-				w.refuse = head + " -c with no string argument"
+				w.refuseWith("wrapper", head+" -c with no string argument")
 				return
 			}
 			if i+2 < len(rest) {
-				w.refuse = head + " -c with positional args after STRING not supported"
+				w.refuseWith("wrapper", head+" -c with positional args after STRING not supported")
 				return
 			}
 			inner := rest[i+1]
-			subCalls, subRefuse, err := Extract(inner)
+			subCalls, subRefusal, err := Extract(inner)
 			if err != nil {
-				w.refuse = "inner " + head + " parse failed: " + err.Error()
+				w.refuseWith("parse", "inner "+head+" parse failed: "+err.Error())
 				return
 			}
-			if subRefuse != "" {
-				w.refuse = "inside " + head + " -c: " + subRefuse
+			if subRefusal != nil {
+				w.refuseWith(subRefusal.Kind, "inside "+head+" -c: "+subRefusal.Message)
 				return
 			}
 			for _, sc := range subCalls {
@@ -467,10 +489,10 @@ func (w *walker) unwrapDashC(stmt *syntax.Stmt, head string, rest []string, env 
 		if a == "-x" {
 			continue
 		}
-		w.refuse = head + " invocation without -c not supported (got: " + a + ")"
+		w.refuseWith("wrapper", head+" invocation without -c not supported (got: "+a+")")
 		return
 	}
-	w.refuse = head + " invocation without -c not supported"
+	w.refuseWith("wrapper", head+" invocation without -c not supported")
 }
 
 func composeCwd(outer, inner string) string {

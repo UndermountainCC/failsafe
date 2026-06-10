@@ -42,14 +42,14 @@ func Explain(cmdArgs []string, out io.Writer, opts ExplainOptions) int {
 		command = joinShellArgs(cmdArgs)
 	}
 
-	calls, refuse, err := shellparser.Extract(command)
+	calls, refusal, err := shellparser.Extract(command)
 	if err != nil {
 		fmt.Fprintf(out, "shell parse error: %v\n", err)
 		return 2
 	}
-	if refuse != "" {
+	if refusal != nil {
 		fmt.Fprintf(out, "Decision: BLOCK (refuse-on-ambiguity)\n")
-		fmt.Fprintf(out, "Reason  : %s\n", refuse)
+		fmt.Fprintf(out, "Reason  : %s\n", refusal.Message)
 		return 0
 	}
 	if len(calls) == 0 {
