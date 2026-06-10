@@ -93,6 +93,30 @@ If this matters for your use case, watch the [failsafe releases](https://github.
 
 ---
 
+## Filesystem-access guard
+
+!!! warning "Roadmap: not yet shipped"
+    This section describes a planned future capability. It is not implemented today.
+
+The current config self-protection model (hardcoded defaults, `Validate()` rejecting
+fail-open knobs) protects against accidental misconfiguration but cannot stop an agent
+that writes directly to sensitive files on disk — because failsafe only guards registered
+shell-tool invocations, not raw filesystem operations from the agent.
+
+The planned filesystem-access guard will extend failsafe's policy surface to cover
+agent writes to sensitive paths, including:
+
+- `~/.config/failsafe/` — the failsafe config and policy files themselves
+- `~/.aws/` — AWS credentials and config
+- `~/.ssh/` — SSH keys and known-hosts
+- User and repo Rego policy files (`.failsafe.rego`, `~/.config/failsafe/policy.rego`)
+
+With this guard in place, an agent attempting to weaken the failsafe configuration or
+exfiltrate credentials via a file-write would be blocked by the same policy evaluation
+that already blocks destructive infrastructure commands.
+
+---
+
 ## Where to go next
 
 - [Why failsafe](./why-failsafe.md): comprehension over matching

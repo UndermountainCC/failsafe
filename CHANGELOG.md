@@ -8,6 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`~/.config/failsafe/config.yaml`** — new optional config file (koanf loader).
+  Precedence: `flags > env > file > defaults`. A missing file is equivalent to
+  all-defaults; no migration required.
+
+- **Config env var bindings** — `FAILSAFE_*` env vars now have documented config-key
+  mappings (e.g. `FAILSAFE_LOG_PATH` → `log.path`). The existing `FAILSAFE_MODE` and
+  `FAILSAFE_LOG` variables are handled by back-compat shims; their behavior is **unchanged**.
+
+- **`internal/telemetry` package** — minimal telemetry interface, off by default.
+  `New(cfg TelemetryConfig)` returns a no-op exporter when `telemetry.enabled` is
+  `false` (the default) and a stub (still no-op) when enabled. No OpenTelemetry
+  dependency is added in v1; the stub documents the intended OTLP payload shape for
+  review before a real exporter ships.
+
+- **Config self-protection documentation** (`docs/reference/configuration.md`) — explains
+  the four protection layers: fixed config path, `Validate()` rejecting fail-open knobs,
+  hardcoded default guard mode, and the residual filesystem-write surface.
+
+- **Filesystem-access guard roadmap entry** (`docs/explanation/roadmap.md`) — describes
+  the planned guard for agent writes to `~/.config/failsafe/`, `~/.aws/`, `~/.ssh/`, and
+  policy files.
+
 ### Changed
 
 - **Canonical mode vocabulary**: the two mode values are now `enabled` (failsafe active,
