@@ -81,6 +81,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				Home:    home,
 				LogPath: auditlog.DefaultLogger(home, os.Getenv).Path,
 			})
+		case "log":
+			home := os.Getenv("HOME")
+			return subcommand.Log(args[2:], stdout, subcommand.LogOptions{
+				Home:    home,
+				LogPath: auditlog.DefaultLogger(home, os.Getenv).Path,
+			})
 		case "toggle":
 			return subcommand.Toggle(stdout, subcommand.ToggleOptions{
 				Chain: subcommand.DefaultModeChain(),
@@ -155,6 +161,8 @@ Usage:
   failsafe hook                  same; explicit
   failsafe report [flags]        summarize the decision log
                                    [--since 7d] [--format md|json] [--share]
+  failsafe log [flags]           inspect the raw decision log
+                                   [--tail 20] [--since DUR] [--json]
   failsafe --version             print version
   failsafe --help                this help
 

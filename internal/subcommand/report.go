@@ -180,6 +180,7 @@ type scariestRow struct {
 	Decision string `json:"decision"`
 	Tool     string `json:"tool"`
 	Verb     string `json:"verb"`
+	Subverb  string `json:"subverb,omitempty"`
 	CWD      string `json:"cwd,omitempty"`
 	Reason   string `json:"reason,omitempty"`
 	Command  string `json:"command,omitempty"`
@@ -232,8 +233,8 @@ func buildReport(since string, recs []auditlog.Record) report {
 		}
 		scary = append(scary, scariestRow{
 			Time: r.Time.UTC().Format(time.RFC3339), Decision: r.Decision,
-			Tool: r.Tool, Verb: r.Verb, CWD: r.CWD, Reason: r.Reason,
-			Command: r.Command, Score: s,
+			Tool: r.Tool, Verb: r.Verb, Subverb: r.Subverb, CWD: r.CWD,
+			Reason: r.Reason, Command: r.Command, Score: s,
 		})
 	}
 	sort.SliceStable(scary, func(i, j int) bool {
@@ -277,7 +278,12 @@ func renderMarkdown(out io.Writer, rep report) int {
 	if len(rep.Scariest) > 0 {
 		fmt.Fprintf(out, "\n## Scariest decisions\n\n")
 		for _, s := range rep.Scariest {
-			fmt.Fprintf(out, "- **%s** %s %s (score %d)%s — %s\n", s.Decision, s.Tool, s.Verb, s.Score, scariestWhere(s), scariestDetail(s))
+			cat := scariestCategory(s)
+			if cat != "" {
+				fmt.Fprintf(out, "- **%s** %s (score %d)%s — %s\n", s.Decision, cat, s.Score, scariestWhere(s), scariestDetail(s))
+			} else {
+				fmt.Fprintf(out, "- **%s** (score %d)%s — %s\n", s.Decision, s.Score, scariestWhere(s), scariestDetail(s))
+			}
 		}
 	}
 	return 0
@@ -293,11 +299,35 @@ func scariestWhere(s scariestRow) string {
 }
 
 func scariestDetail(s scariestRow) string {
+	detail := ""
 	if s.Reason != "" {
-		return s.Reason
+		detail = s.Reason
 	}
 	if s.Command != "" {
-		return "`" + s.Command + "`"
+		if detail != "" {
+			detail += " — `" + s.Command + "`"
+		} else {
+			detail = "`" + s.Command + "`"
+		}
 	}
-	return "(no detail)"
+	if detail == "" {
+		return "(no detail)"
+	}
+	return detail
+}
+
+// scariestCategory renders the tool/verb/subverb category string for a scariest
+// decision, e.g. "shell/unanalyzable/glob" or "kubectl/delete".
+func scariestCategory(s scariestRow) string {
+	if s.Tool == "" {
+		return ""
+	}
+	cat := s.Tool
+	if s.Verb != "" {
+		cat += "/" + s.Verb
+	}
+	if s.Subverb != "" {
+		cat += "/" + s.Subverb
+	}
+	return cat
 }

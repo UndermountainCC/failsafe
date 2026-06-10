@@ -291,6 +291,43 @@ func TestReport_SubverbColumnBreaksDownRefusalKinds(t *testing.T) {
 	}
 }
 
+// TestReport_ScariestShowsCommandAndCategory verifies that a block/refuse record with
+// both a Reason and a Command renders BOTH in the scariest section, along with the
+// full category (tool/verb/subverb). A record with an empty Command must not produce
+// a dangling "— ``" trailer.
+func TestReport_ScariestShowsCommandAndCategory(t *testing.T) {
+	log := writeLog(t,
+		// Block with reason + command + subverb category.
+		`{"ts":"2026-05-30T11:00:00Z","decision":"block","tool":"shell","verb":"unanalyzable","subverb":"glob","cwd":"/repo","reason":"cannot safely analyze: unquoted glob","command":"rm -rf build/*.tmp","session":{"agent_session_id":"s"}}`,
+		// Block with reason but NO command (must not dangling dash).
+		`{"ts":"2026-05-30T11:01:00Z","decision":"block","tool":"kubectl","verb":"delete","cwd":"/repo","reason":"blocked in read mode","session":{"agent_session_id":"s"}}`,
+	)
+	var buf bytes.Buffer
+	code := Report(nil, &buf, ReportOptions{Home: "/Users/you", LogPath: log, Now: fixedNow})
+	if code != 0 {
+		t.Fatalf("Report exit=%d, out=%s", code, buf.String())
+	}
+	out := buf.String()
+
+	// The first entry must include the category, reason, and command.
+	if !strings.Contains(out, "shell/unanalyzable/glob") {
+		t.Errorf("scariest should contain full category 'shell/unanalyzable/glob'; got:\n%s", out)
+	}
+	if !strings.Contains(out, "cannot safely analyze: unquoted glob") {
+		t.Errorf("scariest should contain the reason; got:\n%s", out)
+	}
+	if !strings.Contains(out, "rm -rf build/*.tmp") {
+		t.Errorf("scariest should contain the command; got:\n%s", out)
+	}
+
+	// The second entry (no command) must not produce a dangling "— `" or "— ``".
+	// We check by verifying that "blocked in read mode" appears without a trailing
+	// backtick-pair immediately after.
+	if strings.Contains(out, "blocked in read mode — ``") {
+		t.Errorf("scariest with empty command must not produce dangling '— ``'; got:\n%s", out)
+	}
+}
+
 // TestReport_MarkdownSubverbColumn checks that the markdown table header and rows
 // include the Subverb column.
 func TestReport_MarkdownSubverbColumn(t *testing.T) {
