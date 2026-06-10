@@ -8,15 +8,17 @@
 // Safety invariants enforced at load time (Validate):
 //   - log.redact is always true; false is a fatal error.
 //   - control_plane.url / control_plane.bundle_signing_key are reserved (v1); setting either is fatal.
-//   - mode.default normalises to "enabled" for any value other than the explicit "disabled".
+//
+// The chain default (mode.Chain.Default) is always the hardcoded literal "enabled".
+// There is no mode.default config key — a configurable default would be a
+// self-disable vector (an agent editing config.yaml could bypass the guard).
 //
 // Back-compat shims (applied before the env provider loads):
 //   - FAILSAFE_LOG=off            → log.enabled=false
 //   - FAILSAFE_LOG=<path>         → log.path=<path>, log.enabled=true
-//   - FAILSAFE_MODE is intentionally NOT mapped to mode.default; it stays as the
+//   - FAILSAFE_MODE is intentionally NOT mapped to any config field; it stays as the
 //     first source in the mode chain (EnvSource{Name:"FAILSAFE_MODE"}) so per-pane
-//     file sources can still override it.  Collapsing it into mode.default would
-//     break the chain's pane-granularity guarantees.
+//     file sources can still override it.
 package config
 
 import (
@@ -49,12 +51,12 @@ type Config struct {
 
 // ModeConfig holds mode-resolution settings.
 type ModeConfig struct {
-	// Default is "enabled" or "disabled".  Any other value (empty, garbled)
-	// is normalised to "enabled" by Validate — a typo can never silently
-	// default the fleet to "disabled".  Explicit "disabled" is allowed (O1).
-	Default string `koanf:"default"`
 	// PaneDir is the toggle-file directory.  Effectively fixed at
 	// ~/.claude/pane-mode; see spec §5 for why this is "recorded not driven".
+	//
+	// Note: there is intentionally no Default field here.  The chain's default
+	// is always the hardcoded literal "enabled" (set in buildModeChain) — a
+	// configurable default would be a self-disable vector.
 	PaneDir string `koanf:"pane_dir"`
 }
 
@@ -114,7 +116,6 @@ type Options struct {
 func defaults() Config {
 	return Config{
 		Mode: ModeConfig{
-			Default: "enabled",
 			PaneDir: "~/.claude/pane-mode",
 		},
 		Log: LogConfig{
@@ -219,7 +220,7 @@ func Load(opts Options) (*Config, error) {
 // ---------------------------------------------------------------------------
 
 // envTransform converts a FAILSAFE_* env key to the matching koanf key.
-// E.g. FAILSAFE_LOG_PATH → log.path, FAILSAFE_MODE_DEFAULT → mode.default.
+// E.g. FAILSAFE_LOG_PATH → log.path.
 // Keys that do not match the schema simply pass through lowercased; koanf
 // ignores unknown keys during Unmarshal.
 func envTransform(s string) string {
@@ -240,9 +241,8 @@ func envTransform(s string) string {
 //	FAILSAFE_LOG=<path>     → log.path=<path>, log.enabled=true
 //	FAILSAFE_LOG unset/""   → no override (defaults stand)
 //
-// FAILSAFE_MODE is deliberately excluded: it is not mapped to mode.default
-// here.  It continues to live as EnvSource{Name:"FAILSAFE_MODE"} in the
-// mode chain so pane-file sources can override it.
+// FAILSAFE_MODE is deliberately excluded: it lives as EnvSource{Name:"FAILSAFE_MODE"}
+// in the mode chain so pane-file sources can override it.
 func buildEnvShims(getenv func(string) string) map[string]interface{} {
 	m := map[string]interface{}{}
 	switch v := getenv("FAILSAFE_LOG"); {
@@ -365,8 +365,9 @@ func (e *injectableEnvProvider) Read() (map[string]interface{}, error) {
 // knownEnvKeys is the canonical list of FAILSAFE_* env var names supported in
 // v1.  This list is used by injectableEnvProvider to ensure stub envs (used in
 // tests) are fully read even when os.Environ does not contain these keys.
+// Note: FAILSAFE_MODE_DEFAULT is intentionally absent — there is no mode.default
+// config key (the chain default is hardcoded to "enabled").
 var knownEnvKeys = []string{
-	"FAILSAFE_MODE_DEFAULT",
 	"FAILSAFE_MODE_PANE_DIR",
 	"FAILSAFE_LOG_ENABLED",
 	"FAILSAFE_LOG_PATH",
@@ -449,17 +450,6 @@ func expandEnvVars(s string, getenv func(string) string) string {
 // Validate enforces safety invariants.  It is called by Load after Unmarshal
 // and path expansion.  A validation error is fatal.
 func (c *Config) Validate() error {
-	// mode.default: only "enabled" and "disabled" are accepted.
-	// Any other value (empty, garbled) is silently normalised to "enabled"
-	// (fail-safe — a typo can never accidentally default the fleet to disabled).
-	// Explicit "disabled" is allowed (locked decision O1).
-	switch c.Mode.Default {
-	case "enabled", "disabled":
-		// valid; keep as-is
-	default:
-		c.Mode.Default = "enabled"
-	}
-
 	// log.path must be non-empty after expansion.
 	if c.Log.Path == "" {
 		return errors.New("config: log.path is empty after expansion")

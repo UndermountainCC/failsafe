@@ -270,7 +270,8 @@ func DefaultModeChain() *mode.Chain { return defaultModeChain() }
 // ModeChainFromConfig builds a mode.Chain from a loaded *config.Config.
 // home is the resolved home directory (already expanded, no tilde).
 // Callers that already hold a *config.Config should prefer this over
-// DefaultModeChain so that Mode.PaneDir and Mode.Default from config are used.
+// DefaultModeChain so that Mode.PaneDir from config is used.
+// The chain Default is always the hardcoded literal "enabled" (not configurable).
 func ModeChainFromConfig(cfg *config.Config, home string) *mode.Chain {
 	return buildModeChain(cfg, home)
 }
@@ -313,8 +314,10 @@ func defaultModeChain() *mode.Chain {
 
 // buildModeChain builds the mode.Chain from a loaded *config.Config.
 // home is the resolved home directory (already expanded, no tilde).
-// The source ORDER and kinds are fixed in code; only cfg.Mode.PaneDir and
-// cfg.Mode.Default are driven by config (spec §5 "recorded not driven").
+// The source ORDER and kinds are fixed in code; only cfg.Mode.PaneDir is
+// driven by config (spec §5 "recorded not driven").
+// The chain Default is always hardcoded to "enabled" — it is never configurable,
+// to prevent a self-disable vector via config.yaml.
 func buildModeChain(cfg *config.Config, home string) *mode.Chain {
 	paneDir := cfg.Mode.PaneDir
 	// If PaneDir is already an absolute path (expanded by config.Load), use it
@@ -340,7 +343,8 @@ func buildModeChain(cfg *config.Config, home string) *mode.Chain {
 			// Global last-resort fallback (always writable while HOME is set).
 			mode.FileSource{Pattern: "${HOME}/.config/failsafe/mode"},
 		},
-		Default: cfg.Mode.Default,
+		// Default is always hardcoded; there is no mode.default config key.
+		Default: "enabled",
 	}
 }
 

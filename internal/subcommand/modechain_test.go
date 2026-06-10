@@ -79,7 +79,6 @@ func TestBuildModeChain_CustomPaneDir(t *testing.T) {
 	// Build a config with the custom PaneDir.
 	cfg := &config.Config{
 		Mode: config.ModeConfig{
-			Default: "enabled",
 			PaneDir: customPaneDir,
 		},
 		Log: config.LogConfig{

@@ -57,9 +57,6 @@ func TestMissingFileReturnsDefaults(t *testing.T) {
 	})
 
 	// Mode defaults.
-	if cfg.Mode.Default != "enabled" {
-		t.Errorf("Mode.Default: want enabled, got %q", cfg.Mode.Default)
-	}
 	if cfg.Mode.PaneDir != home+"/.claude/pane-mode" {
 		t.Errorf("Mode.PaneDir: want %s/.claude/pane-mode, got %q", home, cfg.Mode.PaneDir)
 	}
@@ -292,62 +289,6 @@ func TestControlPlaneBundleSigningKeyRejected(t *testing.T) {
 	}
 	if !contains(err.Error(), "control_plane") {
 		t.Errorf("expected error to mention 'control_plane', got: %v", err)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// mode.default: fail-safe normalisation + explicit disabled allowed (O1)
-// ---------------------------------------------------------------------------
-
-func TestModeDefaultGarbageNormalisedToEnabled(t *testing.T) {
-	home := t.TempDir()
-	cfgDir := filepath.Join(home, ".config", "failsafe")
-	if err := os.MkdirAll(cfgDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	yaml := "mode:\n  default: totally-garbled-value\n"
-	if err := os.WriteFile(filepath.Join(cfgDir, "config.yaml"), []byte(yaml), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := mustLoad(t, Options{Home: home, Env: homeEnv(home, nil)})
-	if cfg.Mode.Default != "enabled" {
-		t.Errorf("garbled mode.default should normalise to 'enabled', got %q", cfg.Mode.Default)
-	}
-}
-
-func TestModeDefaultEmptyNormalisedToEnabled(t *testing.T) {
-	home := t.TempDir()
-	cfgDir := filepath.Join(home, ".config", "failsafe")
-	if err := os.MkdirAll(cfgDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	yaml := "mode:\n  default: \"\"\n"
-	if err := os.WriteFile(filepath.Join(cfgDir, "config.yaml"), []byte(yaml), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := mustLoad(t, Options{Home: home, Env: homeEnv(home, nil)})
-	if cfg.Mode.Default != "enabled" {
-		t.Errorf("empty mode.default should normalise to 'enabled', got %q", cfg.Mode.Default)
-	}
-}
-
-// TestModeDefaultDisabledAllowed: locked decision O1 — explicit disabled is valid.
-func TestModeDefaultDisabledAllowed(t *testing.T) {
-	home := t.TempDir()
-	cfgDir := filepath.Join(home, ".config", "failsafe")
-	if err := os.MkdirAll(cfgDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	yaml := "mode:\n  default: disabled\n"
-	if err := os.WriteFile(filepath.Join(cfgDir, "config.yaml"), []byte(yaml), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := mustLoad(t, Options{Home: home, Env: homeEnv(home, nil)})
-	if cfg.Mode.Default != "disabled" {
-		t.Errorf("explicit mode.default=disabled should be preserved, got %q", cfg.Mode.Default)
 	}
 }
 

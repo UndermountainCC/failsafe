@@ -45,7 +45,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return subcommand.Explain(args[2:], stdout, subcommand.ExplainOptions{
 				Home: os.Getenv("HOME"),
 				CWD:  cwd,
-				Mode: cfg.Mode.Default,
+				Mode: "enabled", // chain default is always hardcoded; no mode.default config key
 			})
 		case "test":
 			if len(args) < 3 {
