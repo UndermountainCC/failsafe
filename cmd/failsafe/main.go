@@ -91,10 +91,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				LogPath: cfg.Log.Path,
 			})
 		case "log":
-			home := os.Getenv("HOME")
+			// LogPath from config (same path the hook writes to; honours FAILSAFE_LOG).
 			return subcommand.Log(args[2:], stdout, subcommand.LogOptions{
-				Home:    home,
-				LogPath: auditlog.DefaultLogger(home, os.Getenv).Path,
+				Home:    os.Getenv("HOME"),
+				LogPath: cfg.Log.Path,
 			})
 		case "toggle":
 			return subcommand.Toggle(stdout, subcommand.ToggleOptions{
