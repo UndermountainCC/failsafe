@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -54,11 +55,7 @@ func Load(home string) (*Trust, error) {
 }
 
 func (t *Trust) IsTrusted(repoPath string) bool {
-	canonical, err := filepath.Abs(repoPath)
-	if err != nil {
-		return false
-	}
-	canonical = filepath.Clean(canonical)
+	canonical := resolveRepoIdentity(repoPath)
 	for _, r := range t.repos {
 		if filepath.Clean(r.Path) == canonical {
 			return true
@@ -68,11 +65,7 @@ func (t *Trust) IsTrusted(repoPath string) bool {
 }
 
 func (t *Trust) Add(repoPath, reason string) error {
-	canonical, err := filepath.Abs(repoPath)
-	if err != nil {
-		return err
-	}
-	canonical = filepath.Clean(canonical)
+	canonical := resolveRepoIdentity(repoPath)
 	if t.IsTrusted(canonical) {
 		return ErrAlreadyTrusted
 	}
@@ -85,11 +78,7 @@ func (t *Trust) Add(repoPath, reason string) error {
 }
 
 func (t *Trust) Remove(repoPath string) error {
-	canonical, err := filepath.Abs(repoPath)
-	if err != nil {
-		return err
-	}
-	canonical = filepath.Clean(canonical)
+	canonical := resolveRepoIdentity(repoPath)
 	out := t.repos[:0]
 	found := false
 	for _, r := range t.repos {
@@ -123,4 +112,56 @@ func (t *Trust) save() error {
 		return err
 	}
 	return os.Rename(tmp, t.file)
+}
+
+// resolveRepoIdentity maps a path to the canonical identity of its git repo so
+// every worktree of a repo shares one trust key. A LINKED worktree's `.git` is
+// a FILE ("gitdir: <gitdir>"); the MAIN worktree's `.git` is a directory. For a
+// linked worktree we resolve back to the main repo's working tree via the
+// worktree gitdir's `commondir` file — no `git` exec. Main worktrees and
+// non-git paths are returned unchanged (Abs+Clean).
+//
+// EvalSymlinks is used so that symlinked prefixes (e.g. macOS /tmp → /private/tmp)
+// are normalised consistently across the main repo path and the absolute gitdir
+// path written into linked worktrees' .git files.
+func resolveRepoIdentity(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return filepath.Clean(path)
+	}
+	abs = filepath.Clean(abs)
+	// Resolve symlinks so the stored key matches the real path that git writes
+	// into worktree .git files (e.g. /tmp → /private/tmp on macOS).
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = real
+	}
+	gitPath := filepath.Join(abs, ".git")
+	info, err := os.Stat(gitPath)
+	if err != nil || info.IsDir() {
+		return abs // main worktree / non-git: unchanged
+	}
+	body, err := os.ReadFile(gitPath) // ".git" is a file → linked worktree
+	if err != nil {
+		return abs
+	}
+	line := strings.TrimSpace(string(body))
+	gitdir, ok := strings.CutPrefix(line, "gitdir:")
+	if !ok {
+		return abs
+	}
+	wtGitDir := strings.TrimSpace(gitdir)
+	if !filepath.IsAbs(wtGitDir) {
+		wtGitDir = filepath.Clean(filepath.Join(abs, wtGitDir))
+	}
+	// wtGitDir = <commonGit>/worktrees/<name>; `commondir` points to <commonGit>.
+	commonGit := filepath.Clean(filepath.Dir(filepath.Dir(wtGitDir))) // fallback: strip /worktrees/<name>
+	if cb, err := os.ReadFile(filepath.Join(wtGitDir, "commondir")); err == nil {
+		cd := strings.TrimSpace(string(cb))
+		if !filepath.IsAbs(cd) {
+			cd = filepath.Join(wtGitDir, cd)
+		}
+		commonGit = filepath.Clean(cd)
+	}
+	// main working tree = parent of the common .git dir (non-bare layout).
+	return filepath.Clean(filepath.Dir(commonGit))
 }
