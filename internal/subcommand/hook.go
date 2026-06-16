@@ -101,16 +101,16 @@ func Hook(stdin io.Reader, stdout, stderr io.Writer, opts HookOptions) int {
 	//    a strict subset of valid shell, so an obscure-but-valid command
 	//    might fail our parser yet still execute. Failing closed is
 	//    correct for a guard.)
-	calls, refuse, err := shellparser.Extract(in.ToolInput.Command)
+	calls, refusal, err := shellparser.Extract(in.ToolInput.Command)
 	if err != nil {
 		reason := "failsafe cannot parse this command (shell syntax not supported by mvdan.cc/sh): " + err.Error()
-		logRec("block", reason, "", "", "", in.CWD)
+		logRec("block", reason, "shell", "unanalyzable", "parse", in.CWD)
 		_ = hookio.WriteBlock(stdout, reason)
 		return 0
 	}
-	if refuse != "" {
-		reason := "failsafe cannot safely analyze this command: " + refuse
-		logRec("block", reason, "", "", "", in.CWD)
+	if refusal != nil {
+		reason := "failsafe cannot safely analyze this command: " + refusal.Message
+		logRec("block", reason, "shell", "unanalyzable", refusal.Kind, in.CWD)
 		_ = hookio.WriteBlock(stdout, reason)
 		return 0
 	}
