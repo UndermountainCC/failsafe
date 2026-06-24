@@ -54,9 +54,12 @@ export PATH="$BINDIR:$PATH"
 
 # ── Sandbox HOME so demos never touch the real ~/.config/failsafe ────────────
 # failsafe resolves all of its state from $HOME (policy.rego, trusted-repos.yaml,
-# decisions.jsonl, pane-mode files). A throwaway HOME keeps demos deterministic
-# and side-effect free, mirroring helpers.bash in the doc-validation harness.
-SANDBOX_HOME="$(mktemp -d)"
+# decisions.jsonl, pane-mode files). A throwaway HOME keeps demos side-effect
+# free, mirroring helpers.bash in the doc-validation harness. The path is FIXED
+# (not mktemp-random) so the cwd printed by `explain` is readable and identical
+# on every re-record — committed SVGs then diff only when behaviour changes.
+SANDBOX_HOME="${TMPDIR:-/tmp}/failsafe-docs-home"
+rm -rf "$SANDBOX_HOME"
 export HOME="$SANDBOX_HOME"
 mkdir -p "$SANDBOX_HOME/project"
 unset FAILSAFE_MODE FAILSAFE_LOG 2>/dev/null || true
@@ -81,8 +84,12 @@ record_scenario() {
   local cast="$OUT_DIR/$name.cast"
   log "recording $name -> $cast"
 
+  # `virtui run` prints a human block ("session_id: <id>\npid: …"); pull the id
+  # out of it so we don't take a hard dependency on jq.
   local sid
-  sid="$(virtui run --record --record-path "$cast" --cols "$COLS" --rows "$ROWS" bash)"
+  sid="$(virtui run --record --record-path "$cast" --cols "$COLS" --rows "$ROWS" bash \
+         | sed -n 's/^session_id: //p')"
+  [[ -n "$sid" ]] || { warn "could not start session for $name"; return 1; }
 
   # Quiet, deterministic prompt; start from the sandbox project dir.
   virtui exec "$sid" "export PS1='\$ '; cd \"$HOME/project\"; clear" --wait-stable >/dev/null
@@ -99,6 +106,7 @@ record_scenario() {
   done
 
   virtui exec "$sid" "exit" --wait-stable >/dev/null 2>&1 || true
+  virtui kill "$sid" >/dev/null 2>&1 || true   # finalize/flush the recording
 }
 
 # ── Scenarios — the headless CLI demos ───────────────────────────────────────

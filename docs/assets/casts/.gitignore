@@ -1,4 +1,3 @@
-# Generated asciicast recordings live here (scripts/record-docs.sh).
-# .cast files are committed; rendered .svg/.gif are build artifacts.
-*.svg
+# Rendered GIFs are heavy build artifacts — regenerate with scripts/record-docs.sh --render.
+# .cast (source) and .svg (embedded in docs) ARE committed.
 *.gif
