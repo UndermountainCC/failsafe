@@ -33,6 +33,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/docs/assets/casts}"
 COLS="${COLS:-92}"
 ROWS="${ROWS:-22}"
+# Pause (seconds) held on each frame so playback is readable, not a blur. virtui
+# records in real wall-clock time, so an idle gap on the host becomes a visible
+# pause in the cast. Override with STEP_PAUSE=0 for a fast smoke-test recording.
+STEP_PAUSE="${STEP_PAUSE:-2}"
 RENDER=0
 [[ "${1:-}" == "--render" ]] && RENDER=1
 
@@ -98,6 +102,7 @@ record_scenario() {
   for step in "$@"; do
     cmd="${step%%|*}"
     want="${step#*|}"
+    sleep "$STEP_PAUSE"   # hold the previous frame so commands don't blur together
     if [[ "$want" == "$step" || -z "$want" ]]; then
       virtui exec "$sid" "$cmd" --wait-stable >/dev/null
     else
@@ -105,6 +110,7 @@ record_scenario() {
     fi
   done
 
+  sleep "$STEP_PAUSE"     # let the final output linger before the session closes
   virtui exec "$sid" "exit" --wait-stable >/dev/null 2>&1 || true
   virtui kill "$sid" >/dev/null 2>&1 || true   # finalize/flush the recording
 }
