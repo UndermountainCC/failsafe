@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Documentation demos (asciicast automation)
 
 This directory documents the **recording** half of the docs flow. It pairs with
-the doc-validation harness (`test/docs/`, PR #2):
+the doc-validation harness (`test/docs/`):
 
 | Concern | Owner | What it guarantees |
 |---------|-------|--------------------|
@@ -46,7 +46,7 @@ same "missing tool ⇒ skip, never a vacuous pass" rule the harness uses.
 | Cast | Command | Documents |
 |------|---------|-----------|
 | `explain-block.cast` | `failsafe explain "kubectl … delete ns payments"` | tutorials/getting-started, README — the guard blocking a destructive command |
-| `mode-toggle.cast` | `failsafe mode get / set rw / set ro` | reference/modes, getting-started step 4 |
+| `mode-toggle.cast` | `failsafe mode get / set disabled / set enabled` | reference/modes, getting-started step 4 |
 | `audit.cast` | `failsafe audit` | how-to/repo-policy — the policy chain in force |
 
 Add a scenario by appending one `record_scenario` block in the script; keep the

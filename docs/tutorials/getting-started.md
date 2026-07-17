@@ -121,9 +121,9 @@ failsafe mode get
 disabled
 ```
 
-Flipping to write and back, recorded:
+Flipping to `disabled` and back, recorded:
 
-![failsafe mode get, set rw, set ro](../assets/casts/mode-toggle.svg)
+![failsafe mode get, set disabled, set enabled](../assets/casts/mode-toggle.svg)
 
 Now run a read-only `kubectl get` to confirm allowed commands still pass through:
 

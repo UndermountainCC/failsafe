@@ -6,7 +6,7 @@
 # recordings for the documentation site.
 #
 # This is the *recording* half of the docs automation flow. It is a sibling to
-# the doc-validation harness (test/docs/, PR #2): that harness proves the
+# the doc-validation harness (test/docs/): that harness proves the
 # copy-paste snippets in docs/ actually run against the real binary; this script
 # produces the demo recordings that *show* them running, from the same commands,
 # so the two never drift.
@@ -123,12 +123,14 @@ record_scenario() {
 record_scenario "explain-block" -- \
   "failsafe explain \"kubectl --context arn:aws:eks:us-east-1:123456789012:cluster/prod delete ns payments\"|Decision: BLOCK"
 
-# 2. The read/write mode switch (reference/modes, tutorials/getting-started step 4).
+# 2. The enabled/disabled mode switch (reference/modes, tutorials/getting-started step 4).
+# Later steps use --wait-stable (no |text): their words already sit on the
+# screen from earlier steps, so a text wait would fire before the output lands.
 record_scenario "mode-toggle" -- \
-  "failsafe mode get|read" \
-  "failsafe mode set rw|read & write" \
-  "failsafe mode get|read & write" \
-  "failsafe mode set ro|read"
+  "failsafe mode get|enabled" \
+  "failsafe mode set disabled|disabled" \
+  "failsafe mode get" \
+  "failsafe mode set enabled"
 
 # 3. The policy chain in force (how-to/repo-policy, reference).
 record_scenario "audit" -- \
