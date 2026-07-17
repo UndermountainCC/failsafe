@@ -1,0 +1,44 @@
+# Copyright 2026 Undermountain Coding Company
+# SPDX-License-Identifier: Apache-2.0
+
+name: record-docs
+
+# Regenerate the documentation asciicast recordings on demand.
+#
+# GATED to manual dispatch on purpose — same posture as docs.yml. virtui is an
+# early-stage (v0.2.0) recorder, so it is deliberately NOT wired into the
+# required `ci` gate: a flaky upstream must never be able to block `main`.
+# Run this when a demoed command's output changes; download the rendered
+# artifacts and commit the ones you want to embed.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: install virtui (recorder)
+        run: go install github.com/honeybadge-labs/virtui/cmd/virtui@latest
+      - name: install agg (.cast -> .gif renderer)
+        run: |
+          curl -fsSL -o /usr/local/bin/agg \
+            https://github.com/asciinema/agg/releases/latest/download/agg-x86_64-unknown-linux-gnu
+          chmod +x /usr/local/bin/agg
+      - name: record + render demos
+        run: scripts/record-docs.sh --render
+      - uses: actions/upload-artifact@v4
+        with:
+          name: doc-casts
+          path: |
+            docs/assets/casts/*.cast
+            docs/assets/casts/*.gif
+            docs/assets/casts/*.svg
+          if-no-files-found: warn
