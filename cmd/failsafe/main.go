@@ -42,10 +42,16 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return subcommand.MCP(stdin, stdout, stderr)
 		case "explain":
 			cwd, _ := os.Getwd()
+			// Resolve the live mode the same way the hook does, so explain's
+			// verdict matches what the hook would actually decide.
+			liveMode, _, err := subcommand.ModeChainFromConfig(cfg, os.Getenv("HOME")).Resolve(subcommand.EnvFromOS())
+			if err != nil {
+				liveMode = "enabled" // fail-safe: an unresolvable mode never weakens the verdict
+			}
 			return subcommand.Explain(args[2:], stdout, subcommand.ExplainOptions{
 				Home: os.Getenv("HOME"),
 				CWD:  cwd,
-				Mode: "enabled", // chain default is always hardcoded; no mode.default config key
+				Mode: liveMode,
 			})
 		case "test":
 			if len(args) < 3 {

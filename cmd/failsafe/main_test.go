@@ -43,3 +43,20 @@ func TestRun_Report(t *testing.T) {
 		t.Errorf("report did not include the logged kubectl decision:\n%s", stdout.String())
 	}
 }
+
+// Regression: explain must resolve the live mode chain (env, pane files, …),
+// not assume "enabled". A disabled pane must be reflected in explain's verdict,
+// or the docs claim "explain shows what the hook would do" is false.
+func TestRun_ExplainResolvesLiveMode(t *testing.T) {
+	t.Setenv("HOME", t.TempDir()) // isolate pane/config state
+	t.Setenv("FAILSAFE_MODE", "disabled")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"failsafe", "explain", "kubectl delete ns payments"}, nil, &stdout, &stderr)
+	if code != 0 && code != 1 { // 0=allow, 1=block are both valid exits; 2=usage error is not
+		t.Fatalf("exit code = %d; stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Mode:        disabled") {
+		t.Errorf("explain ignored FAILSAFE_MODE=disabled:\n%s", stdout.String())
+	}
+}
