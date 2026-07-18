@@ -191,14 +191,19 @@ build_tmux_config() {
     "$EXTRACT" "$TMUX_DOC" tmux 1 "Status indicator"
     printf '\n# --- demo-only overrides ---\n'
     printf 'set -g status-interval 1\n'
-    printf 'set -g display-time 900\n'
+    printf 'set -g display-time 1500\n'
     # Keycast wrapper (demo polish only): the doc's C-M-t binding is materialised
-    # ABOVE, then this later binding for the SAME key wins. It flashes a "key was
-    # pressed" caption, then runs the doc's toggle script by its exact path — the
-    # toggle path is byte-identical to the doc; the wrapper only ADDS the on-screen
-    # key caption. The same real chord (press Escape Ctrl+T) still fires it through
-    # tmux's root key table, so the keystroke is genuine, not faked.
-    printf "bind -n C-M-t run-shell \"tmux display-message '⌨  Ctrl+Alt+T'; sleep 0.7; %s/tmux-toggle.sh '#{pane_id}'\"\n" "$cfgdir"
+    # ABOVE, then this later binding for the SAME key wins. It pops up a big,
+    # centered "key was pressed" caption (tmux display-popup — YouTube-demo
+    # style, far more noticeable than a status-bar toast), then runs the doc's
+    # toggle script by its exact path — the toggle path is byte-identical to the
+    # doc; the wrapper only ADDS the on-screen key caption. The same real chord
+    # (press Escape Ctrl+T) still fires it through tmux's root key table, so the
+    # keystroke is genuine, not faked. The two %s args are reused as literal
+    # `\"` (escapes the popup's own -E command string) so bash/printf never
+    # re-interpret the \n / \033 escapes meant for the popup's inner printf.
+    printf "bind -n C-M-t run-shell \"tmux display-popup -w 34 -h 5 -E %sprintf '%s'; sleep 1.1%s; %s/tmux-toggle.sh '#{pane_id}'\"\n" \
+      '\"' "\n   \033[1;7m  ⌨  Ctrl + Alt + T  \033[0m\n" '\"' "$cfgdir"
     printf "set -g default-command \"env PS1='\$ ' BASH_SILENCE_DEPRECATION_WARNING=1 bash --norc\"\n"
   } > "$conf"
 
