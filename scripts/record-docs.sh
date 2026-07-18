@@ -241,8 +241,10 @@ record_tmux_hotkey() {
   build_tmux_config "$cfgdir" "$conf"
   tmux -L failsafe-demo kill-server >/dev/null 2>&1 || true   # no zombie server
 
+  # -e: the macOS zsh-deprecation banner is printed by this OUTER bash (before
+  # tmux's default-command ever runs), so it must be silenced at spawn time.
   local sid
-  sid="$(virtui run --record --record-path "$cast" --cols "$COLS" --rows "$ROWS" bash \
+  sid="$(virtui run --record --record-path "$cast" --cols "$COLS" --rows "$ROWS" -e BASH_SILENCE_DEPRECATION_WARNING=1 bash \
          | sed -n 's/^session_id: //p')"
   [[ -n "$sid" ]] || { warn "could not start session for $name"; return 1; }
 
@@ -321,8 +323,10 @@ record_claude_hook() {
   mkdir -p "$panedir"
   ( cd "$panedir" && ls -1 ) > "$before" 2>/dev/null || true
 
+  # -e: silence the macOS zsh-deprecation banner in the outer spawn shell (same
+  # reason as record_tmux_hotkey).
   local sid
-  sid="$(virtui run --record --record-path "$cast" --cols "$COLS" --rows "$ROWS" bash \
+  sid="$(virtui run --record --record-path "$cast" --cols "$COLS" --rows "$ROWS" -e BASH_SILENCE_DEPRECATION_WARNING=1 bash \
          | sed -n 's/^session_id: //p')"
   [[ -n "$sid" ]] || { warn "could not start session for $name"; return 1; }
 
